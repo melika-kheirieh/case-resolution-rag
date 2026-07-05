@@ -30,6 +30,7 @@ Implemented demo slice:
 - In-memory audit trace with retrieval and decision events
 - Basic investigation logging for case id, retrieved chunk ids, decision, and blockers
 - Demo evaluation report over golden cases
+- Evaluation metrics for action, decision, retrieval hit, citation, manual review, unsafe response blocking, and abstention behavior
 - Failure gallery endpoint for inspecting unsafe and manual-review scenarios
 - Thin FastAPI routes for health, demo case, investigation, failure gallery, and evaluation
 - Pytest-based service/domain and API test coverage
@@ -42,6 +43,12 @@ Demo cases:
 - `case_refund_delay_expired_policy`: expired policy is not used, manual review required
 - `case_refund_delay_policy_conflict`: conflicting active policies, manual review required
 - `case_refund_delay_refund_failed`: failed refund, manual review required
+- `case_refund_delay_within_sla`: pending refund still inside SLA, wait/manual-review path
+- `case_refund_delay_policy_version_mismatch`: active policy rejected because requested version does not match
+
+Additional evaluation scenario:
+
+- `bad_ai_response`: completed refund with a bad provider draft, blocked before customer response
 
 ## Why This Is Not Just A Chatbot
 
@@ -95,7 +102,7 @@ python -m pytest -q
 Run lint and compile checks:
 
 ```bash
-python -m ruff check app tests
+python -m ruff check .
 python -m compileall app tests
 ```
 
@@ -131,6 +138,13 @@ Or inspect the failure gallery:
 ```bash
 curl http://127.0.0.1:8000/demo/failure-gallery
 ```
+
+Useful project notes:
+
+- `docs/architecture.md`
+- `docs/evaluation.md`
+- `docs/data-card.md`
+- `docs/demo-script.md`
 
 ## PostgreSQL + pgvector Demo
 
@@ -192,7 +206,7 @@ Suggested flow:
 4. Run `case_refund_delay_refund_failed` and show that a failed refund is not auto-resolved even with policy evidence.
 5. Run `case_refund_delay_policy_conflict` and show that conflicting active policies are not auto-picked.
 6. Run `/demo/failure-gallery` and show the failure modes in one response.
-7. Run `/eval/demo` and show the golden-case report.
+7. Run `/eval/demo` and show the 9-case golden report.
 8. Explain the design sentence: "The provider drafts text, but the backend owns evidence, policy, citations, blockers, risk gate, and the final automation decision."
 
 More detail is available in `docs/demo-script.md`.
@@ -202,3 +216,5 @@ More detail is available in `docs/demo-script.md`.
 The data is synthetic and reproducible. The first slice intentionally avoids banking and PSP semantics. It uses e-commerce shaped events such as order placed, payment captured, return requested, refund requested, and refund pending.
 
 Anything that looks like a customer identifier is masked and synthetic.
+
+More detail is available in `docs/data-card.md`.

@@ -26,8 +26,7 @@ The next improvements should focus on behavior, not infrastructure for its own s
 
 - Add more refund-delay failure scenarios.
 - Add request and correlation IDs.
-- Expand the golden-case evaluation set.
-- Add threshold checks for evaluation reports.
+- Add CI threshold checks for evaluation reports.
 - Add structured JSON logging.
 - Add a small CI workflow.
 
@@ -50,10 +49,9 @@ The repository interfaces already make this migration easier because application
 
 ## Retrieval
 
-The current retrieval is rule-based and metadata-aware. That is enough for the demo. A later iteration can add:
+The current retrieval is vector-store-backed and metadata-aware, with deterministic embeddings for fast local tests and pgvector for the Docker Compose path. A later iteration can add:
 
 - Keyword search
-- Vector search
 - Hybrid retrieval
 - Reranking
 - Parent-child chunk retrieval

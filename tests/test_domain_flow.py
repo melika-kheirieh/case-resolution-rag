@@ -27,6 +27,8 @@ def test_demo_seed_contains_all_expected_cases(demo_store):
         "case_refund_delay_expired_policy",
         "case_refund_delay_policy_conflict",
         "case_refund_delay_refund_failed",
+        "case_refund_delay_within_sla",
+        "case_refund_delay_policy_version_mismatch",
     }
 
 
@@ -265,6 +267,33 @@ def test_failed_refund_requires_manual_review(investigation_service):
     assert any("Refund failed" in limitation for limitation in packet.limitations)
 
 
+def test_pending_refund_within_sla_waits_without_auto_resolution(investigation_service):
+    packet = investigation_service.run("case_refund_delay_within_sla")
+
+    assert packet.recommended_action == RecommendedAction.WAIT
+    assert packet.automation_decision == AutomationDecision.MANUAL_REVIEW_REQUIRED
+    assert packet.automation_blockers == []
+    assert packet.citations
+    assert packet.risk_gate.passed is False
+    assert packet.risk_gate.risk_level == "low"
+    assert packet.customer_response_allowed is False
+    assert packet.requires_human_review is True
+
+
+def test_policy_version_mismatch_rejects_active_policy(investigation_service):
+    packet = investigation_service.run("case_refund_delay_policy_version_mismatch")
+
+    assert packet.recommended_action == RecommendedAction.REQUEST_MORE_INFO
+    assert packet.automation_decision == AutomationDecision.MANUAL_REVIEW_REQUIRED
+    assert packet.automation_blockers == ["missing_active_policy"]
+    assert packet.citations == []
+    assert packet.retrieval_run.status == "policy_missing"
+    assert "policy_refund_2026_summer" in packet.retrieval_run.rejected_policy_ids
+    assert packet.readiness.status == CaseReadinessStatus.MISSING_EVIDENCE
+    assert packet.customer_response_allowed is False
+    assert packet.requires_human_review is True
+
+
 def test_bad_provider_output_blocks_auto_resolution_and_customer_response(demo_store):
     service = InvestigationService(store=demo_store, provider=FakeProvider(mode="bad_output"))
 
@@ -312,9 +341,13 @@ def test_policy_conflict_requires_human_review(investigation_service):
 def test_demo_evaluation_report_passes_all_golden_cases(investigation_service):
     report = run_demo_evaluation(investigation_service)
 
-    assert report.total_cases == 6
-    assert report.passed_cases == 6
+    assert report.total_cases == 9
+    assert report.passed_cases == 9
     assert report.action_accuracy == 1.0
+    assert report.decision_accuracy == 1.0
+    assert report.retrieval_hit_rate == 1.0
     assert report.citation_coverage == 1.0
+    assert report.manual_review_accuracy == 1.0
+    assert report.unsafe_response_block_rate == 1.0
     assert report.abstention_accuracy == 1.0
     assert all(result.passed for result in report.results)

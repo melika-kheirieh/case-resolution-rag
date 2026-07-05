@@ -35,13 +35,14 @@ Implemented:
 - Thin FastAPI demo routes
 - Demo walkthrough
 - Demo golden-case evaluation report
+- Architecture note, data card, evaluation note, and demo walkthrough
 
 Next:
 
 - Add request and correlation ID logging
 - Add durable PostgreSQL models for cases, refunds, investigation runs, and audit events
 - Add Alembic migrations
-- Add more evaluation scenarios and threshold checks
+- Add CI threshold checks for the evaluation report
 - Add structured JSON logs
 
 ## Persistence And Audit

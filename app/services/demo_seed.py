@@ -103,6 +103,28 @@ def build_demo_store() -> DemoStore:
         created_at=dt("2026-07-01T14:00:00"),
     )
 
+    within_sla_case = SupportCase(
+        id="case_refund_delay_within_sla",
+        case_type="refund_delay",
+        policy_version="2026.06",
+        status=CaseStatus.OPEN,
+        order_id="order_1007",
+        customer_id_masked="cust_***_7201",
+        customer_message="My return was accepted yesterday and the refund is still pending.",
+        created_at=dt("2026-07-01T15:00:00"),
+    )
+
+    policy_version_mismatch_case = SupportCase(
+        id="case_refund_delay_policy_version_mismatch",
+        case_type="refund_delay",
+        policy_version="2026.99",
+        status=CaseStatus.OPEN,
+        order_id="order_1008",
+        customer_id_masked="cust_***_8302",
+        customer_message="The refund looks complete, but the case references an unknown policy version.",
+        created_at=dt("2026-07-01T16:00:00"),
+    )
+
     breached_refund = RefundRequest(
         id="refund_9001",
         order_id="order_1001",
@@ -152,6 +174,26 @@ def build_demo_store() -> DemoStore:
         requested_at=dt("2026-06-29T09:00:00"),
         updated_at=dt("2026-06-30T10:35:00"),
         failure_reason="processor_rejected",
+    )
+
+    within_sla_refund = RefundRequest(
+        id="refund_9007",
+        order_id="order_1007",
+        amount=38_00,
+        currency="USD",
+        status=RefundStatus.PENDING,
+        requested_at=dt("2026-06-30T10:00:00"),
+        updated_at=dt("2026-07-01T09:30:00"),
+    )
+
+    policy_version_mismatch_refund = RefundRequest(
+        id="refund_9008",
+        order_id="order_1008",
+        amount=47_00,
+        currency="USD",
+        status=RefundStatus.COMPLETED,
+        requested_at=dt("2026-06-29T11:00:00"),
+        updated_at=dt("2026-06-30T12:00:00"),
     )
 
     breached_events = [
@@ -308,6 +350,69 @@ def build_demo_store() -> DemoStore:
         ),
     ]
 
+    within_sla_events = [
+        TimelineEvent(
+            type=TimelineEventType.ORDER_PLACED,
+            happened_at=dt("2026-06-28T10:00:00"),
+            title="Order placed",
+            details={"order_id": "order_1007", "amount": 38_00, "currency": "USD"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.PAYMENT_CAPTURED,
+            happened_at=dt("2026-06-28T10:01:00"),
+            title="Payment captured",
+            details={"payment_id": "pay_7007", "amount": 38_00, "currency": "USD"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.RETURN_REQUESTED,
+            happened_at=dt("2026-06-30T08:45:00"),
+            title="Return requested",
+            details={"return_id": "return_5007", "reason": "wrong_size"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.REFUND_REQUESTED,
+            happened_at=within_sla_refund.requested_at,
+            title="Refund requested",
+            details={"refund_id": within_sla_refund.id, "amount": within_sla_refund.amount},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.REFUND_PENDING,
+            happened_at=within_sla_refund.updated_at,
+            title="Refund still pending",
+            details={"refund_id": within_sla_refund.id, "status": within_sla_refund.status},
+        ),
+    ]
+
+    policy_version_mismatch_events = [
+        TimelineEvent(
+            type=TimelineEventType.ORDER_PLACED,
+            happened_at=dt("2026-06-27T14:00:00"),
+            title="Order placed",
+            details={"order_id": "order_1008", "amount": 47_00, "currency": "USD"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.PAYMENT_CAPTURED,
+            happened_at=dt("2026-06-27T14:01:00"),
+            title="Payment captured",
+            details={"payment_id": "pay_7008", "amount": 47_00, "currency": "USD"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.RETURN_REQUESTED,
+            happened_at=dt("2026-06-29T09:40:00"),
+            title="Return requested",
+            details={"return_id": "return_5008", "reason": "changed_mind"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.REFUND_REQUESTED,
+            happened_at=policy_version_mismatch_refund.requested_at,
+            title="Refund requested",
+            details={
+                "refund_id": policy_version_mismatch_refund.id,
+                "amount": policy_version_mismatch_refund.amount,
+            },
+        ),
+    ]
+
     active_policy = PolicyDocument(
         id="policy_refund_2026_summer",
         title="Refund and Return Policy",
@@ -397,6 +502,8 @@ def build_demo_store() -> DemoStore:
             expired_policy_case.id: expired_policy_case,
             policy_conflict_case.id: policy_conflict_case,
             refund_failed_case.id: refund_failed_case,
+            within_sla_case.id: within_sla_case,
+            policy_version_mismatch_case.id: policy_version_mismatch_case,
         },
         refunds_by_order_id={
             breached_case.order_id: breached_refund,
@@ -404,6 +511,8 @@ def build_demo_store() -> DemoStore:
             expired_policy_case.order_id: expired_policy_refund,
             policy_conflict_case.order_id: policy_conflict_refund,
             refund_failed_case.order_id: failed_refund,
+            within_sla_case.order_id: within_sla_refund,
+            policy_version_mismatch_case.order_id: policy_version_mismatch_refund,
         },
         events_by_order_id={
             breached_case.order_id: breached_events,
@@ -412,6 +521,8 @@ def build_demo_store() -> DemoStore:
             expired_policy_case.order_id: expired_policy_events,
             policy_conflict_case.order_id: policy_conflict_events,
             refund_failed_case.order_id: failed_refund_events,
+            within_sla_case.order_id: within_sla_events,
+            policy_version_mismatch_case.order_id: policy_version_mismatch_events,
         },
         policies=[expired_policy, active_policy, conflict_policy_short_sla, conflict_policy_long_sla],
     )

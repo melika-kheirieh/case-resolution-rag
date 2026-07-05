@@ -197,13 +197,23 @@ class PolicyRetrievalResult(BaseModel):
 
 
 class EvaluationCaseResult(BaseModel):
+    scenario_id: str
     case_id: str
+    provider_mode: str
     expected_action: RecommendedAction
     actual_action: RecommendedAction
     expected_decision: AutomationDecision
     actual_decision: AutomationDecision
     expected_readiness: CaseReadinessStatus
     actual_readiness: CaseReadinessStatus
+    expected_retrieval_hit: bool
+    actual_retrieval_hit: bool
+    expected_citation_present: bool
+    actual_citation_present: bool
+    expected_manual_review: bool
+    actual_manual_review: bool
+    expected_unsafe_response_blocked: bool
+    actual_unsafe_response_blocked: bool
     passed: bool
     notes: list[str] = Field(default_factory=list)
 
@@ -212,7 +222,11 @@ class EvaluationReport(BaseModel):
     total_cases: int
     passed_cases: int
     action_accuracy: float
+    decision_accuracy: float
+    retrieval_hit_rate: float
     citation_coverage: float
+    manual_review_accuracy: float
+    unsafe_response_block_rate: float
     abstention_accuracy: float
     results: list[EvaluationCaseResult]
 

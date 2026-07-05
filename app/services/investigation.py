@@ -342,7 +342,12 @@ class InvestigationService:
             risk_level = RiskLevel.MEDIUM
 
         return RiskGateResult(
-            passed=score <= 20 and not blockers and bool(citations),
+            passed=(
+                validation.action == RecommendedAction.RESOLVE
+                and score <= 20
+                and not blockers
+                and bool(citations)
+            ),
             risk_level=risk_level,
             score=score,
             reasons=reasons,

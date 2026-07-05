@@ -23,6 +23,8 @@ FAILURE_GALLERY_CASE_IDS = [
     "case_refund_delay_expired_policy",
     "case_refund_delay_policy_conflict",
     "case_refund_delay_refund_failed",
+    "case_refund_delay_within_sla",
+    "case_refund_delay_policy_version_mismatch",
 ]
 
 
@@ -54,6 +56,8 @@ def demo_page() -> str:
         <button data-case-id="case_refund_delay_expired_policy">Expired policy</button>
         <button data-case-id="case_refund_delay_policy_conflict">Policy conflict</button>
         <button data-case-id="case_refund_delay_refund_failed">Refund failed</button>
+        <button data-case-id="case_refund_delay_within_sla">Within SLA</button>
+        <button data-case-id="case_refund_delay_policy_version_mismatch">Version mismatch</button>
         <button id="failure-gallery">Failure gallery</button>
         <button id="eval">Run eval report</button>
         <pre id="output">Click the button to generate a ResolutionPacket.</pre>

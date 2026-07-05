@@ -46,11 +46,11 @@ http://127.0.0.1:8000/demo
    - Say: multiple active policies disagree, so the backend escalates instead of choosing one silently.
 
 6. Run `/demo/failure-gallery`.
-   - Show SLA breach, missing evidence, expired policy, policy conflict, refund failed, and bad AI response in one response.
+   - Show SLA breach, missing evidence, expired policy, policy conflict, refund failed, within-SLA wait, policy version mismatch, and bad AI response in one response.
    - Say: this is the failure gallery; it makes unsafe paths demoable instead of hidden in unit tests.
 
 7. Run `/eval/demo`.
-   - Show `action_accuracy`, `citation_coverage`, and `abstention_accuracy`.
+   - Show `action_accuracy`, `decision_accuracy`, `retrieval_hit_rate`, `manual_review_accuracy`, `unsafe_response_block_rate`, and `abstention_accuracy`.
    - Say: the evaluation is small, but it makes the expected behavior explicit and regression-testable.
 
 ## Closing Sentence
