@@ -25,14 +25,16 @@ The provider may draft text, classify signals, or summarize evidence, but the ba
 The next improvements should focus on behavior, not infrastructure for its own sake:
 
 - Add more refund-delay failure scenarios.
-- Persist investigation runs and audit events.
 - Add PostgreSQL-backed case and refund repositories.
-- Add Alembic migrations for durable state.
-- Add API examples for tracing requests through logs and packets.
+- Add API examples for retrieving persisted investigation runs.
+- Add paginated investigation run listing for local debugging.
 
 ## Persistence
 
-The current slice uses an in-memory store to keep the demo fast. A later durable iteration can add PostgreSQL with SQLAlchemy and Alembic.
+The current slice keeps source case/refund data in memory to keep the demo fast,
+but investigation runs and audit events are durable through SQLAlchemy and
+Alembic-managed tables. A later durable iteration can move the operational source
+data to PostgreSQL too.
 
 Useful tables:
 

@@ -12,3 +12,4 @@ __MACOSX/
 .env
 .env.*
 !.env.example
+case_resolution_audit.db

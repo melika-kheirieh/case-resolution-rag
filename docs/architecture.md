@@ -17,10 +17,17 @@ The provider drafts customer-facing text, but it does not own the decision. The 
 7. Run the risk gate.
 8. Decide whether the case is an auto-resolution candidate or needs human review.
 9. Return a structured packet with evidence, citations, blockers, risk, limitations, and audit trace.
+10. Persist the investigation run and ordered audit events for later inspection.
 
 ## Storage
 
-The default local path uses an in-memory store to keep tests fast and deterministic. Docker Compose can run policy chunk retrieval through PostgreSQL and pgvector.
+The default local path uses an in-memory store for source case/refund fixtures so
+tests stay fast and deterministic. Policy retrieval can run through PostgreSQL
+and pgvector in Docker Compose.
+
+Investigation audit is durable. The app stores `investigation_runs` and ordered
+`audit_events` through SQLAlchemy. Local direct runs use SQLite by default, while
+Docker/PostgreSQL runs can use `DATABASE_URL` or a dedicated `AUDIT_DATABASE_URL`.
 
 ## Safety Invariants
 
@@ -30,6 +37,8 @@ The default local path uses an in-memory store to keep tests fast and determinis
 - No auto-resolution when refund movement failed.
 - No auto-resolution when the provider returns unsafe or unstructured text.
 - The backend renders citations; the provider does not invent them.
+- Audit events are written after the final packet is built, so the persisted run
+  reflects the actual returned decision.
 
 ## Deliberate Non-Goals
 

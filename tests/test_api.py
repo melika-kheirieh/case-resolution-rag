@@ -41,6 +41,42 @@ def test_investigate_completed_refund_returns_auto_resolve_candidate(test_client
     assert data["requires_human_review"] is False
 
 
+def test_investigation_run_can_be_loaded_after_investigation(test_client):
+    investigate_response = test_client.post(
+        "/cases/case_refund_delay_002/investigate",
+        headers={
+            "X-Request-ID": "req_load_persisted_run",
+            "X-Correlation-ID": "corr_load_persisted_run",
+        },
+    )
+
+    assert investigate_response.status_code == 200
+    packet = investigate_response.json()
+    run_response = test_client.get(
+        f"/investigation-runs/{packet['investigation_run_id']}"
+    )
+
+    assert run_response.status_code == 200
+    run = run_response.json()
+    assert run["id"] == packet["investigation_run_id"]
+    assert run["case_id"] == "case_refund_delay_002"
+    assert run["request_id"] == "req_load_persisted_run"
+    assert run["correlation_id"] == "corr_load_persisted_run"
+    assert run["recommended_action"] == "resolve"
+    assert run["automation_decision"] == "auto_resolve_candidate"
+    assert run["risk_level"] == "low"
+    assert run["risk_score"] == 0
+    assert run["customer_response_allowed"] is True
+    assert run["requires_human_review"] is False
+    assert [event["name"] for event in run["audit_events"]] == packet["trace"]
+
+
+def test_unknown_investigation_run_returns_404(test_client):
+    response = test_client.get("/investigation-runs/inv_missing")
+
+    assert response.status_code == 404
+
+
 def test_investigate_policy_conflict_returns_manual_review_required(test_client):
     response = test_client.post("/cases/case_refund_delay_policy_conflict/investigate")
 

@@ -32,7 +32,8 @@ Implemented:
 - Basic investigation logging
 - Request and correlation ID propagation
 - Structured JSON logs
-- Basic audit trace with retrieval and decision events
+- Durable investigation runs and ordered audit events
+- Alembic migration for audit tables
 - Failure gallery endpoint
 - CI workflow for lint, compile, tests, and evaluation threshold checks
 - Thin FastAPI demo routes
@@ -42,23 +43,25 @@ Implemented:
 
 Next:
 
-- Add durable PostgreSQL models for cases, refunds, investigation runs, and audit events
-- Add Alembic migrations
-- Add persisted request/correlation IDs to durable investigation runs
+- Add durable PostgreSQL models for support cases, refunds, and timeline events
+- Add repository-backed case loading while preserving synthetic demo fixtures
+- Add a small audit run listing endpoint with pagination
 
 ## Persistence And Audit
 
 Goal: move beyond the in-memory demo by adding durable storage, explicit audit records, and stronger workflow invariants.
 
-Planned:
+Implemented:
 
-- PostgreSQL-backed repositories
-- Alembic migration setup
 - Durable investigation runs
 - Durable audit events
+- Alembic migration setup for audit tables
+- Request ID and correlation ID propagation into persisted runs
+
+Planned:
+
+- PostgreSQL-backed repositories for operational case data
 - Clearer domain invariants for evidence, policy, citation, and customer-response gating
-- Request ID and correlation ID propagation
-- Structured JSON logging
 
 ## Evaluation And Operability
 
