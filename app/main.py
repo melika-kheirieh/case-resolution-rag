@@ -1,12 +1,19 @@
+import logging
+from uuid import uuid4
+
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.responses import HTMLResponse
 
 from app.services.demo_seed import build_demo_store
 from app.services.evaluation import run_demo_evaluation
 from app.services.investigation import InvestigationService
+from app.services.logging_config import configure_logging, correlation_id_var, request_id_var
 from app.services.policy_retrieval_factory import build_policy_retrieval_service
 from app.services.provider import FakeProvider
 
+configure_logging()
+logger = logging.getLogger(__name__)
 app = FastAPI(title="Operations Case Resolution Backend", version="0.3.0")
 store = build_demo_store()
 policy_retrieval = build_policy_retrieval_service(store.list_policies())
@@ -26,6 +33,42 @@ FAILURE_GALLERY_CASE_IDS = [
     "case_refund_delay_within_sla",
     "case_refund_delay_policy_version_mismatch",
 ]
+
+
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or f"req_{uuid4().hex[:12]}"
+    correlation_id = request.headers.get("x-correlation-id") or request_id
+    request.state.request_id = request_id
+    request.state.correlation_id = correlation_id
+
+    request_token = request_id_var.set(request_id)
+    correlation_token = correlation_id_var.set(correlation_id)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Correlation-ID"] = correlation_id
+        logger.info(
+            "request_completed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+            },
+        )
+        return response
+    except Exception:
+        logger.exception(
+            "request_failed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+            },
+        )
+        raise
+    finally:
+        request_id_var.reset(request_token)
+        correlation_id_var.reset(correlation_token)
 
 
 @app.get("/health")

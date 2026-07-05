@@ -25,10 +25,10 @@ The provider may draft text, classify signals, or summarize evidence, but the ba
 The next improvements should focus on behavior, not infrastructure for its own sake:
 
 - Add more refund-delay failure scenarios.
-- Add request and correlation IDs.
-- Add CI threshold checks for evaluation reports.
-- Add structured JSON logging.
-- Add a small CI workflow.
+- Persist investigation runs and audit events.
+- Add PostgreSQL-backed case and refund repositories.
+- Add Alembic migrations for durable state.
+- Add API examples for tracing requests through logs and packets.
 
 ## Persistence
 
@@ -73,6 +73,10 @@ Useful checks:
 - Abstention behavior
 - Unsafe response blocking
 - Policy conflict handling
+
+The current CI gate keeps the synthetic golden set strict. Future production-like
+evaluation should add larger and messier datasets before relaxing or weighting
+thresholds.
 
 The evaluation report should separate action correctness from automation safety. A system can choose the right action but still be unsafe if it allows an unsupported customer response.
 

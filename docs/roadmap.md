@@ -30,8 +30,11 @@ Implemented:
 - Customer-facing response gate
 - Pytest-based domain and API test coverage
 - Basic investigation logging
+- Request and correlation ID propagation
+- Structured JSON logs
 - Basic audit trace with retrieval and decision events
 - Failure gallery endpoint
+- CI workflow for lint, compile, tests, and evaluation threshold checks
 - Thin FastAPI demo routes
 - Demo walkthrough
 - Demo golden-case evaluation report
@@ -39,11 +42,9 @@ Implemented:
 
 Next:
 
-- Add request and correlation ID logging
 - Add durable PostgreSQL models for cases, refunds, investigation runs, and audit events
 - Add Alembic migrations
-- Add CI threshold checks for the evaluation report
-- Add structured JSON logs
+- Add persisted request/correlation IDs to durable investigation runs
 
 ## Persistence And Audit
 

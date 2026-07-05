@@ -174,6 +174,8 @@ class InvestigationRun(BaseModel):
     case_id: str
     provider_name: str
     created_at: datetime
+    request_id: str | None = None
+    correlation_id: str | None = None
     audit_events: list[str] = Field(default_factory=list)
 
 
@@ -233,6 +235,8 @@ class EvaluationReport(BaseModel):
 
 class ResolutionPacket(BaseModel):
     investigation_run_id: str
+    request_id: str | None = None
+    correlation_id: str | None = None
     case_id: str
     summary: str
     timeline: list[str]

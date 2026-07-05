@@ -3,6 +3,25 @@ def test_health_returns_ok(test_client):
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert response.headers["X-Request-ID"].startswith("req_")
+    assert response.headers["X-Correlation-ID"] == response.headers["X-Request-ID"]
+
+
+def test_request_context_is_returned_and_recorded_in_packet(test_client):
+    response = test_client.post(
+        "/cases/case_refund_delay_002/investigate",
+        headers={
+            "X-Request-ID": "req_interview_demo",
+            "X-Correlation-ID": "corr_case_resolution_demo",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "req_interview_demo"
+    assert response.headers["X-Correlation-ID"] == "corr_case_resolution_demo"
+    data = response.json()
+    assert data["request_id"] == "req_interview_demo"
+    assert data["correlation_id"] == "corr_case_resolution_demo"
 
 
 def test_investigate_completed_refund_returns_auto_resolve_candidate(test_client):

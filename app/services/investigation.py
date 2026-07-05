@@ -23,6 +23,7 @@ from app.services.policy_retrieval import PolicyRetrievalService
 from app.services.provider import FakeProvider
 from app.services.store import DemoStore
 from app.services.timeline import build_timeline
+from app.services.logging_config import current_correlation_id, current_request_id
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,8 @@ class InvestigationService:
         self.provider = provider or FakeProvider()
 
     def run(self, case_id: str) -> ResolutionPacket:
+        request_id = current_request_id()
+        correlation_id = current_correlation_id()
         support_case = self.store.get_case(case_id)
         refund = self.store.get_refund_for_order(support_case.order_id)
         timeline = build_timeline(self.store.get_events_for_order(support_case.order_id))
@@ -48,9 +51,12 @@ class InvestigationService:
         )
         policy_chunk = retrieval_result.chunk
         logger.info(
-            "case_id=%s retrieved_chunk_ids=%s",
-            support_case.id,
-            retrieval_result.retrieval_run.matched_chunk_ids,
+            "policy_retrieval_completed",
+            extra={
+                "case_id": support_case.id,
+                "retrieved_chunk_ids": retrieval_result.retrieval_run.matched_chunk_ids,
+                "retrieval_status": retrieval_result.retrieval_run.status,
+            },
         )
 
         run = InvestigationRun(
@@ -58,6 +64,8 @@ class InvestigationService:
             case_id=support_case.id,
             provider_name=self.provider.name,
             created_at=datetime.now(tz=UTC),
+            request_id=request_id,
+            correlation_id=correlation_id,
             audit_events=[
                 "case_loaded",
                 f"timeline_built:{len(timeline)}_events",
@@ -121,10 +129,14 @@ class InvestigationService:
         )
         run.audit_events.append("customer_response_checked")
         logger.info(
-            "case_id=%s decision=%s blockers=%s",
-            support_case.id,
-            automation_decision,
-            blockers,
+            "investigation_decision_created",
+            extra={
+                "case_id": support_case.id,
+                "decision": automation_decision,
+                "blockers": blockers,
+                "risk_level": risk_gate.risk_level,
+                "risk_score": risk_gate.score,
+            },
         )
 
         readiness = self._case_readiness(
@@ -177,6 +189,8 @@ class InvestigationService:
         trace = [*run.audit_events, "packet_returned"]
         packet = ResolutionPacket(
             investigation_run_id=run.id,
+            request_id=run.request_id,
+            correlation_id=run.correlation_id,
             case_id=support_case.id,
             summary="Refund delay case for a returned e-commerce order.",
             timeline=timeline_lines,

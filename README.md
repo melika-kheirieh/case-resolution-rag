@@ -75,6 +75,9 @@ It is still close to an enterprise RAG workflow because the core behavior is pre
 - Unsafe or unstructured provider output blocks customer-facing response.
 - Risk gating is explicit in the packet, not hidden inside prose.
 - The packet carries trace data so the investigation path is inspectable.
+- Requests carry `X-Request-ID` and `X-Correlation-ID` through response headers,
+  structured logs, and investigation packets.
+- CI runs lint, compile checks, tests, and the demo evaluation threshold gate.
 
 ## Non-Goals
 
@@ -104,6 +107,12 @@ Run lint and compile checks:
 ```bash
 python -m ruff check .
 python -m compileall app tests
+```
+
+Run the evaluation quality gate used by CI:
+
+```bash
+python scripts/check_eval_thresholds.py
 ```
 
 Run API:
@@ -182,6 +191,8 @@ The investigation flow is:
 The output packet includes:
 
 * `summary`
+* `request_id`
+* `correlation_id`
 * `timeline`
 * `evidence`
 * `citations`
@@ -210,6 +221,24 @@ Suggested flow:
 8. Explain the design sentence: "The provider drafts text, but the backend owns evidence, policy, citations, blockers, risk gate, and the final automation decision."
 
 More detail is available in `docs/demo-script.md`.
+
+## Operability Checks
+
+The API adds a request ID and correlation ID to every response. If the caller
+does not send them, the middleware generates a request ID and reuses it as the
+correlation ID. Investigation packets include both fields so a demo response can
+be connected to structured JSON logs.
+
+The CI workflow runs:
+
+* `python -m ruff check .`
+* `python -m compileall app tests scripts`
+* `python -m pytest -q`
+* `python scripts/check_eval_thresholds.py`
+
+The evaluation threshold script fails if any golden scenario fails or if action,
+decision, retrieval, citation, manual-review, unsafe-output, or abstention
+metrics drop below `1.0`.
 
 ## Data Realism
 
