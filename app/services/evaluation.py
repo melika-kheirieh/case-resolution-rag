@@ -61,6 +61,14 @@ GOLDEN_CASES = [
         expects_citation=True,
         expects_abstention=True,
     ),
+    GoldenCase(
+        case_id="case_refund_delay_refund_failed",
+        expected_action=RecommendedAction.ESCALATE,
+        expected_decision=AutomationDecision.MANUAL_REVIEW_REQUIRED,
+        expected_readiness=CaseReadinessStatus.READY,
+        expects_citation=True,
+        expects_abstention=True,
+    ),
 ]
 
 

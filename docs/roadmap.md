@@ -20,7 +20,9 @@ Implemented:
 - Expired policy rejection
 - Policy conflict detection
 - Missing evidence detection
+- Refund failure detection
 - SLA breach check
+- Explicit risk gate with pass/fail, score, level, and reasons
 - Structured resolution packet
 - Case readiness status
 - Automation decision and blockers
@@ -29,13 +31,13 @@ Implemented:
 - Pytest-based domain and API test coverage
 - Basic investigation logging
 - Basic audit trace with retrieval and decision events
+- Failure gallery endpoint
 - Thin FastAPI demo routes
 - Demo walkthrough
 - Demo golden-case evaluation report
 
 Next:
 
-- Add more failure gallery cases
 - Add request and correlation ID logging
 - Add durable PostgreSQL models for cases, refunds, investigation runs, and audit events
 - Add Alembic migrations

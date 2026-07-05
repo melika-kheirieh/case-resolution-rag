@@ -27,6 +27,7 @@ http://127.0.0.1:8000/demo
    - Show `sla_check.is_breached = true`.
    - Show `automation_decision = manual_review_required`.
    - Point to `automation_blockers`.
+   - Point to `risk_gate.risk_level = high`.
    - Say: SLA breach is not auto-resolved because customer-facing promises need operator review.
 
 3. Run `case_refund_delay_missing_evidence`.
@@ -34,15 +35,24 @@ http://127.0.0.1:8000/demo
    - Show `missing_refund_request`.
    - Say: the system abstains instead of inventing a refund status.
 
-4. Run `case_refund_delay_policy_conflict`.
+4. Run `case_refund_delay_refund_failed`.
+   - Show `refund_status = failed`.
+   - Show `refund_failed_operator_review_required`.
+   - Say: even with a valid policy citation, failed money movement needs operator review.
+
+5. Run `case_refund_delay_policy_conflict`.
    - Show `retrieval_run.status = policy_conflict`.
    - Show two citations and `conflict_policy_ids`.
    - Say: multiple active policies disagree, so the backend escalates instead of choosing one silently.
 
-5. Run `/eval/demo`.
+6. Run `/demo/failure-gallery`.
+   - Show SLA breach, missing evidence, expired policy, policy conflict, refund failed, and bad AI response in one response.
+   - Say: this is the failure gallery; it makes unsafe paths demoable instead of hidden in unit tests.
+
+7. Run `/eval/demo`.
    - Show `action_accuracy`, `citation_coverage`, and `abstention_accuracy`.
    - Say: the evaluation is small, but it makes the expected behavior explicit and regression-testable.
 
 ## Closing Sentence
 
-"Policy chunks are embedded and can be retrieved through pgvector, but the provider still only drafts text; the backend owns evidence, policy selection, citation checks, blockers, readiness, and the final automation decision."
+"Policy chunks are embedded and can be retrieved through pgvector, but the provider still only drafts text; the backend owns evidence, policy selection, citation checks, blockers, risk gate, readiness, and the final automation decision."

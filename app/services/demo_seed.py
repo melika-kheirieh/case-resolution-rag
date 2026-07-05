@@ -92,6 +92,17 @@ def build_demo_store() -> DemoStore:
         created_at=dt("2026-07-01T13:00:00"),
     )
 
+    refund_failed_case = SupportCase(
+        id="case_refund_delay_refund_failed",
+        case_type="refund_delay",
+        policy_version="2026.06",
+        status=CaseStatus.OPEN,
+        order_id="order_1006",
+        customer_id_masked="cust_***_6107",
+        customer_message="The refund failed after my return was accepted. What happens next?",
+        created_at=dt("2026-07-01T14:00:00"),
+    )
+
     breached_refund = RefundRequest(
         id="refund_9001",
         order_id="order_1001",
@@ -130,6 +141,17 @@ def build_demo_store() -> DemoStore:
         status=RefundStatus.PENDING,
         requested_at=dt("2026-06-28T09:00:00"),
         updated_at=dt("2026-06-30T18:00:00"),
+    )
+
+    failed_refund = RefundRequest(
+        id="refund_9006",
+        order_id="order_1006",
+        amount=64_00,
+        currency="USD",
+        status=RefundStatus.FAILED,
+        requested_at=dt("2026-06-29T09:00:00"),
+        updated_at=dt("2026-06-30T10:35:00"),
+        failure_reason="processor_rejected",
     )
 
     breached_events = [
@@ -249,6 +271,43 @@ def build_demo_store() -> DemoStore:
         ),
     ]
 
+    failed_refund_events = [
+        TimelineEvent(
+            type=TimelineEventType.ORDER_PLACED,
+            happened_at=dt("2026-06-25T11:10:00"),
+            title="Order placed",
+            details={"order_id": "order_1006", "amount": 64_00, "currency": "USD"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.PAYMENT_CAPTURED,
+            happened_at=dt("2026-06-25T11:11:00"),
+            title="Payment captured",
+            details={"payment_id": "pay_7006", "amount": 64_00, "currency": "USD"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.RETURN_REQUESTED,
+            happened_at=dt("2026-06-28T12:15:00"),
+            title="Return requested",
+            details={"return_id": "return_5006", "reason": "defective"},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.REFUND_REQUESTED,
+            happened_at=failed_refund.requested_at,
+            title="Refund requested",
+            details={"refund_id": failed_refund.id, "amount": failed_refund.amount},
+        ),
+        TimelineEvent(
+            type=TimelineEventType.REFUND_FAILED,
+            happened_at=failed_refund.updated_at,
+            title="Refund failed",
+            details={
+                "refund_id": failed_refund.id,
+                "status": failed_refund.status,
+                "failure_reason": failed_refund.failure_reason,
+            },
+        ),
+    ]
+
     active_policy = PolicyDocument(
         id="policy_refund_2026_summer",
         title="Refund and Return Policy",
@@ -337,12 +396,14 @@ def build_demo_store() -> DemoStore:
             missing_evidence_case.id: missing_evidence_case,
             expired_policy_case.id: expired_policy_case,
             policy_conflict_case.id: policy_conflict_case,
+            refund_failed_case.id: refund_failed_case,
         },
         refunds_by_order_id={
             breached_case.order_id: breached_refund,
             completed_case.order_id: completed_refund,
             expired_policy_case.order_id: expired_policy_refund,
             policy_conflict_case.order_id: policy_conflict_refund,
+            refund_failed_case.order_id: failed_refund,
         },
         events_by_order_id={
             breached_case.order_id: breached_events,
@@ -350,6 +411,7 @@ def build_demo_store() -> DemoStore:
             missing_evidence_case.order_id: missing_evidence_events,
             expired_policy_case.order_id: expired_policy_events,
             policy_conflict_case.order_id: policy_conflict_events,
+            refund_failed_case.order_id: failed_refund_events,
         },
         policies=[expired_policy, active_policy, conflict_policy_short_sla, conflict_policy_long_sla],
     )

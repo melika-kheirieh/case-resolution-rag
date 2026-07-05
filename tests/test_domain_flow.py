@@ -26,6 +26,7 @@ def test_demo_seed_contains_all_expected_cases(demo_store):
         "case_refund_delay_missing_evidence",
         "case_refund_delay_expired_policy",
         "case_refund_delay_policy_conflict",
+        "case_refund_delay_refund_failed",
     }
 
 
@@ -242,8 +243,26 @@ def test_completed_refund_becomes_auto_resolve_candidate(investigation_service):
     assert packet.citations
     assert packet.retrieval_run.status == "policy_retrieved"
     assert packet.readiness.status == CaseReadinessStatus.READY
+    assert packet.risk_gate.passed is True
+    assert packet.risk_gate.risk_level == "low"
     assert packet.customer_response_allowed is True
     assert packet.requires_human_review is False
+
+
+def test_failed_refund_requires_manual_review(investigation_service):
+    packet = investigation_service.run("case_refund_delay_refund_failed")
+
+    assert packet.recommended_action == RecommendedAction.ESCALATE
+    assert packet.automation_decision == AutomationDecision.MANUAL_REVIEW_REQUIRED
+    assert packet.automation_blockers == ["refund_failed_operator_review_required"]
+    assert packet.reconciliation_checks["refund_status"] == "failed"
+    assert packet.readiness.status == CaseReadinessStatus.READY
+    assert packet.risk_gate.passed is False
+    assert packet.risk_gate.risk_level == "high"
+    assert "refund_failed_operator_review_required" in packet.risk_gate.reasons
+    assert packet.customer_response_allowed is False
+    assert packet.requires_human_review is True
+    assert any("Refund failed" in limitation for limitation in packet.limitations)
 
 
 def test_bad_provider_output_blocks_auto_resolution_and_customer_response(demo_store):
@@ -258,6 +277,8 @@ def test_bad_provider_output_blocks_auto_resolution_and_customer_response(demo_s
     assert packet.citations
     assert packet.retrieval_run.status == "policy_retrieved"
     assert packet.readiness.status == CaseReadinessStatus.READY
+    assert packet.risk_gate.passed is False
+    assert packet.risk_gate.risk_level == "high"
     assert packet.customer_response_allowed is False
     assert packet.requires_human_review is True
 
@@ -291,8 +312,8 @@ def test_policy_conflict_requires_human_review(investigation_service):
 def test_demo_evaluation_report_passes_all_golden_cases(investigation_service):
     report = run_demo_evaluation(investigation_service)
 
-    assert report.total_cases == 5
-    assert report.passed_cases == 5
+    assert report.total_cases == 6
+    assert report.passed_cases == 6
     assert report.action_accuracy == 1.0
     assert report.citation_coverage == 1.0
     assert report.abstention_accuracy == 1.0

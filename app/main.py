@@ -5,11 +5,25 @@ from app.services.demo_seed import build_demo_store
 from app.services.evaluation import run_demo_evaluation
 from app.services.investigation import InvestigationService
 from app.services.policy_retrieval_factory import build_policy_retrieval_service
+from app.services.provider import FakeProvider
 
 app = FastAPI(title="Operations Case Resolution Backend", version="0.3.0")
 store = build_demo_store()
 policy_retrieval = build_policy_retrieval_service(store.list_policies())
 investigation_service = InvestigationService(store=store, policy_retrieval=policy_retrieval)
+bad_provider_service = InvestigationService(
+    store=store,
+    policy_retrieval=policy_retrieval,
+    provider=FakeProvider(mode="bad_output"),
+)
+
+FAILURE_GALLERY_CASE_IDS = [
+    "case_refund_delay_001",
+    "case_refund_delay_missing_evidence",
+    "case_refund_delay_expired_policy",
+    "case_refund_delay_policy_conflict",
+    "case_refund_delay_refund_failed",
+]
 
 
 @app.get("/health")
@@ -39,6 +53,8 @@ def demo_page() -> str:
         <button data-case-id="case_refund_delay_missing_evidence">Missing evidence</button>
         <button data-case-id="case_refund_delay_expired_policy">Expired policy</button>
         <button data-case-id="case_refund_delay_policy_conflict">Policy conflict</button>
+        <button data-case-id="case_refund_delay_refund_failed">Refund failed</button>
+        <button id="failure-gallery">Failure gallery</button>
         <button id="eval">Run eval report</button>
         <pre id="output">Click the button to generate a ResolutionPacket.</pre>
         <script>
@@ -50,6 +66,11 @@ def demo_page() -> str:
               document.getElementById("output").textContent = JSON.stringify(data, null, 2);
             };
           });
+          document.getElementById("failure-gallery").onclick = async () => {
+            const response = await fetch("/demo/failure-gallery");
+            const data = await response.json();
+            document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+          };
           document.getElementById("eval").onclick = async () => {
             const response = await fetch("/eval/demo");
             const data = await response.json();
@@ -66,6 +87,22 @@ def get_demo_case(case_id: str):
     return store.get_case(case_id)
 
 
+@app.get("/demo/failure-gallery")
+def failure_gallery():
+    gallery = [
+        _failure_gallery_item(case_id=case_id, service=investigation_service)
+        for case_id in FAILURE_GALLERY_CASE_IDS
+    ]
+    gallery.append(
+        _failure_gallery_item(
+            case_id="case_refund_delay_002",
+            service=bad_provider_service,
+            scenario_id="bad_ai_response",
+        )
+    )
+    return {"scenarios": gallery}
+
+
 @app.post("/demo/cases/{case_id}/investigations")
 def run_investigation(case_id: str):
     return investigation_service.run(case_id)
@@ -79,3 +116,24 @@ def investigate_case(case_id: str):
 @app.get("/eval/demo")
 def evaluate_demo_cases():
     return run_demo_evaluation(investigation_service)
+
+
+def _failure_gallery_item(
+    *,
+    case_id: str,
+    service: InvestigationService,
+    scenario_id: str | None = None,
+) -> dict[str, object]:
+    packet = service.run(case_id)
+    return {
+        "scenario_id": scenario_id or case_id,
+        "case_id": case_id,
+        "recommended_action": packet.recommended_action,
+        "automation_decision": packet.automation_decision,
+        "automation_blockers": packet.automation_blockers,
+        "readiness": packet.readiness.status,
+        "risk_gate": packet.risk_gate,
+        "customer_response_allowed": packet.customer_response_allowed,
+        "requires_human_review": packet.requires_human_review,
+        "audit_reference": packet.audit_reference,
+    }

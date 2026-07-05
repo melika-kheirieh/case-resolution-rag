@@ -48,6 +48,12 @@ class ConfidenceLevel(StrEnum):
     LOW = "low"
 
 
+class RiskLevel(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class CaseReadinessStatus(StrEnum):
     READY = "ready"
     MISSING_EVIDENCE = "missing_evidence"
@@ -149,6 +155,13 @@ class ActionValidationResult(BaseModel):
     reason: str
 
 
+class RiskGateResult(BaseModel):
+    passed: bool
+    risk_level: RiskLevel
+    score: int
+    reasons: list[str] = Field(default_factory=list)
+
+
 class CustomerResponseDraft(BaseModel):
     text: str
     is_structured: bool = True
@@ -217,6 +230,7 @@ class ResolutionPacket(BaseModel):
     readiness: CaseReadinessCheck
     sla_check: SlaCheck
     recommended_action: RecommendedAction
+    risk_gate: RiskGateResult
     automation_decision: AutomationDecision
     automation_blockers: list[str]
     why_this_action: str

@@ -19,6 +19,8 @@ Implemented demo slice:
 - In-memory vector store for fast tests and API-key-free local development
 - Retrieval run metadata with matched and rejected policy ids
 - Policy conflict detection
+- Refund failure detection
+- Explicit `risk_gate` with score, level, pass/fail, and reasons
 - SLA breach detection
 - Structured `ResolutionPacket`
 - Case readiness status
@@ -28,7 +30,8 @@ Implemented demo slice:
 - In-memory audit trace with retrieval and decision events
 - Basic investigation logging for case id, retrieved chunk ids, decision, and blockers
 - Demo evaluation report over golden cases
-- Thin FastAPI routes for health, demo case, investigation, and evaluation
+- Failure gallery endpoint for inspecting unsafe and manual-review scenarios
+- Thin FastAPI routes for health, demo case, investigation, failure gallery, and evaluation
 - Pytest-based service/domain and API test coverage
 
 Demo cases:
@@ -38,12 +41,15 @@ Demo cases:
 - `case_refund_delay_missing_evidence`: missing refund request, manual review required
 - `case_refund_delay_expired_policy`: expired policy is not used, manual review required
 - `case_refund_delay_policy_conflict`: conflicting active policies, manual review required
+- `case_refund_delay_refund_failed`: failed refund, manual review required
 
 ## Why This Is Not Just A Chatbot
 
 The LLM-shaped provider does not own the decision. It only drafts a structured customer response. The backend owns policy retrieval, evidence checks, SLA evaluation, automation blockers, citation gating, and the final `ResolutionPacket`.
 
 That means a provider can produce a bad draft and the system can still block customer-facing output. This is the important contract: AI output is treated as an input to validate, not as the source of truth.
+
+Day-four behavior focuses on failure paths: missing evidence, expired policy, conflicting policy, failed refund, SLA breach, and unsafe provider output are visible and test-covered.
 
 ## Enterprise RAG Boundary
 
@@ -58,7 +64,9 @@ It is still close to an enterprise RAG workflow because the core behavior is pre
 - Expired policy is rejected before decision-making.
 - Conflicting active policies are escalated instead of silently choosing one.
 - Missing evidence routes the case to human review.
+- Failed refunds route to human review before retry or compensation handling.
 - Unsafe or unstructured provider output blocks customer-facing response.
+- Risk gating is explicit in the packet, not hidden inside prose.
 - The packet carries trace data so the investigation path is inspectable.
 
 ## Non-Goals
@@ -118,6 +126,12 @@ curl http://127.0.0.1:8000/eval/demo
 `/eval/demo` is a small demo evaluation report over the seeded golden cases. It is not a
 production evaluation framework.
 
+Or inspect the failure gallery:
+
+```bash
+curl http://127.0.0.1:8000/demo/failure-gallery
+```
+
 ## PostgreSQL + pgvector Demo
 
 The default direct Python run uses the in-memory vector store so tests and local iteration stay fast.
@@ -143,11 +157,13 @@ The investigation flow is:
 5. Check case readiness and policy conflicts
 6. Check refund SLA
 7. Validate recommended action
-8. Build automation decision and blockers
-9. Generate structured customer response draft
-10. Gate customer-facing response using citation and provider-safety checks
-11. Return a structured resolution packet
-12. Store audit and retrieval trace for the investigation run
+8. Generate structured customer response draft
+9. Build automation blockers
+10. Run risk gate over blockers, citations, and action
+11. Build automation decision
+12. Gate customer-facing response using citation and provider-safety checks
+13. Return a structured resolution packet
+14. Store audit and retrieval trace for the investigation run
 
 The output packet includes:
 
@@ -157,6 +173,7 @@ The output packet includes:
 * `citations`
 * `retrieval_run`
 * `readiness`
+* `risk_gate`
 * `automation_decision`
 * `automation_blockers`
 * `requires_human_review`
@@ -172,9 +189,11 @@ Suggested flow:
 1. Run `case_refund_delay_002` and show that a completed refund with active policy citation becomes `auto_resolve_candidate`.
 2. Point at `citations`, `retrieval_run.matched_chunk_ids`, and `customer_response_allowed`.
 3. Run `case_refund_delay_001` and show that an SLA breach becomes `manual_review_required`.
-4. Run `case_refund_delay_policy_conflict` and show that conflicting active policies are not auto-picked.
-5. Run `/eval/demo` and show the golden-case report.
-6. Explain the design sentence: "The provider drafts text, but the backend owns evidence, policy, citations, blockers, and the final automation decision."
+4. Run `case_refund_delay_refund_failed` and show that a failed refund is not auto-resolved even with policy evidence.
+5. Run `case_refund_delay_policy_conflict` and show that conflicting active policies are not auto-picked.
+6. Run `/demo/failure-gallery` and show the failure modes in one response.
+7. Run `/eval/demo` and show the golden-case report.
+8. Explain the design sentence: "The provider drafts text, but the backend owns evidence, policy, citations, blockers, risk gate, and the final automation decision."
 
 More detail is available in `docs/demo-script.md`.
 

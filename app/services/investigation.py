@@ -15,6 +15,8 @@ from app.domain.models import (
     ResolutionPacket,
     RefundRequest,
     RefundStatus,
+    RiskGateResult,
+    RiskLevel,
     SlaCheck,
 )
 from app.services.policy_retrieval import PolicyRetrievalService
@@ -58,8 +60,8 @@ class InvestigationService:
             created_at=datetime.now(tz=UTC),
             audit_events=[
                 "case_loaded",
-                "timeline_built",
-                retrieval_result.retrieval_run.status,
+                f"timeline_built:{len(timeline)}_events",
+                f"policy_retrieval:{retrieval_result.retrieval_run.status}",
             ],
         )
 
@@ -68,7 +70,7 @@ class InvestigationService:
             has_policy=policy_chunk is not None,
             has_policy_conflict=retrieval_result.has_conflict,
         )
-        run.audit_events.append("evidence_checked")
+        run.audit_events.append(f"evidence_checked:{self._format_blockers(blockers)}")
 
         sla_days = int(policy_chunk.metadata["refund_sla_days"]) if policy_chunk else 0
         elapsed_days = (
@@ -84,6 +86,8 @@ class InvestigationService:
 
         if sla_check.is_breached:
             blockers.append("sla_breached_operator_review_required")
+        if refund and refund.status == RefundStatus.FAILED:
+            blockers.append("refund_failed_operator_review_required")
 
         validation = self._validate_action(
             refund=refund,
@@ -102,8 +106,16 @@ class InvestigationService:
         blockers.extend(provider_blockers)
 
         citations = retrieval_result.citations
-        automation_decision = self._automation_decision(validation, blockers, citations)
-        run.audit_events.append("decision_created")
+        risk_gate = self._risk_gate(
+            validation=validation,
+            blockers=blockers,
+            citations=citations,
+        )
+        run.audit_events.append(
+            f"risk_gate:{risk_gate.risk_level}:passed={str(risk_gate.passed).lower()}"
+        )
+        automation_decision = self._automation_decision(risk_gate)
+        run.audit_events.append(f"decision_created:{automation_decision}")
         customer_response_allowed = self._customer_response_allowed(
             automation_decision, citations, customer_response_draft
         )
@@ -146,6 +158,11 @@ class InvestigationService:
             limitations.append("Multiple active policy chunks disagree on the refund SLA.")
         if not refund:
             limitations.append("No refund request record is available for this order.")
+        elif refund.status == RefundStatus.FAILED:
+            reason = refund.failure_reason or "unknown"
+            limitations.append(
+                f"Refund failed with reason '{reason}', so an operator must verify the next step."
+            )
         elif refund.status != RefundStatus.COMPLETED and refund.failure_reason is None:
             limitations.append("No refund failure reason is available yet.")
         if not customer_response_allowed:
@@ -154,13 +171,7 @@ class InvestigationService:
             )
         limitations.extend(customer_response_draft.safety_notes)
 
-        confidence = (
-            ConfidenceLevel.HIGH
-            if automation_decision == AutomationDecision.AUTO_RESOLVE_CANDIDATE
-            else ConfidenceLevel.MEDIUM
-        )
-        if blockers or not policy_chunk:
-            confidence = ConfidenceLevel.LOW
+        confidence = self._confidence_for_risk_gate(risk_gate)
 
         timeline_lines = [f"{event.happened_at.isoformat()} - {event.title}" for event in timeline]
         trace = [*run.audit_events, "packet_returned"]
@@ -182,6 +193,7 @@ class InvestigationService:
             readiness=readiness,
             sla_check=sla_check,
             recommended_action=validation.action,
+            risk_gate=risk_gate,
             automation_decision=automation_decision,
             automation_blockers=blockers,
             why_this_action=validation.reason,
@@ -276,6 +288,13 @@ class InvestigationService:
                 reason="Refund is completed and active policy evidence supports auto-resolution.",
             )
 
+        if refund and refund.status == RefundStatus.FAILED:
+            return ActionValidationResult(
+                is_valid=True,
+                action=RecommendedAction.ESCALATE,
+                reason="Refund failed, so an operator must verify retry or compensation handling.",
+            )
+
         if refund and sla_check.is_breached:
             return ActionValidationResult(
                 is_valid=True,
@@ -291,13 +310,50 @@ class InvestigationService:
 
     def _automation_decision(
         self,
+        risk_gate: RiskGateResult,
+    ) -> AutomationDecision:
+        if risk_gate.passed:
+            return AutomationDecision.AUTO_RESOLVE_CANDIDATE
+        return AutomationDecision.MANUAL_REVIEW_REQUIRED
+
+    def _risk_gate(
+        self,
         validation: ActionValidationResult,
         blockers: list[str],
         citations: list[object],
-    ) -> AutomationDecision:
-        if validation.action == RecommendedAction.RESOLVE and not blockers and citations:
-            return AutomationDecision.AUTO_RESOLVE_CANDIDATE
-        return AutomationDecision.MANUAL_REVIEW_REQUIRED
+    ) -> RiskGateResult:
+        score = 0
+        reasons: list[str] = []
+
+        if blockers:
+            score += 50
+            reasons.extend(blockers)
+        if not citations:
+            score += 35
+            reasons.append("missing_policy_citation")
+        if validation.action != RecommendedAction.RESOLVE:
+            score += 20
+            reasons.append(f"action_requires_review:{validation.action}")
+
+        risk_level = RiskLevel.LOW
+        if score >= 50:
+            risk_level = RiskLevel.HIGH
+        elif score > 20:
+            risk_level = RiskLevel.MEDIUM
+
+        return RiskGateResult(
+            passed=score <= 20 and not blockers and bool(citations),
+            risk_level=risk_level,
+            score=score,
+            reasons=reasons,
+        )
+
+    def _confidence_for_risk_gate(self, risk_gate: RiskGateResult) -> ConfidenceLevel:
+        if risk_gate.passed:
+            return ConfidenceLevel.HIGH
+        if risk_gate.risk_level == RiskLevel.HIGH:
+            return ConfidenceLevel.LOW
+        return ConfidenceLevel.MEDIUM
 
     def _customer_response_allowed(
         self,
@@ -344,3 +400,6 @@ class InvestigationService:
             reasons=blockers,
             can_generate_customer_response=customer_response_allowed,
         )
+
+    def _format_blockers(self, blockers: list[str]) -> str:
+        return ",".join(blockers) if blockers else "none"
