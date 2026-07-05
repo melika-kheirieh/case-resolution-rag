@@ -71,6 +71,36 @@ def test_investigation_run_can_be_loaded_after_investigation(test_client):
     assert [event["name"] for event in run["audit_events"]] == packet["trace"]
 
 
+def test_investigation_runs_list_returns_most_recent_limited_run(test_client):
+    first_response = test_client.post(
+        "/cases/case_refund_delay_001/investigate",
+        headers={"X-Request-ID": "req_recent_first"},
+    )
+    second_response = test_client.post(
+        "/cases/case_refund_delay_002/investigate",
+        headers={"X-Request-ID": "req_recent_second"},
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    second_packet = second_response.json()
+    list_response = test_client.get("/investigation-runs?limit=1")
+
+    assert list_response.status_code == 200
+    data = list_response.json()
+    assert data["limit"] == 1
+    assert len(data["runs"]) == 1
+    run = data["runs"][0]
+    assert run["id"] == second_packet["investigation_run_id"]
+    assert run["request_id"] == "req_recent_second"
+
+
+def test_investigation_runs_list_rejects_zero_limit(test_client):
+    response = test_client.get("/investigation-runs?limit=0")
+
+    assert response.status_code == 422
+
+
 def test_unknown_investigation_run_returns_404(test_client):
     response = test_client.get("/investigation-runs/inv_missing")
 

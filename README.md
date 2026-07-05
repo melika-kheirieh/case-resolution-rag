@@ -164,6 +164,12 @@ After running an investigation, load the persisted audit run:
 curl http://127.0.0.1:8000/investigation-runs/{investigation_run_id}
 ```
 
+Or list recent persisted audit runs:
+
+```bash
+curl "http://127.0.0.1:8000/investigation-runs?limit=20"
+```
+
 Useful project notes:
 
 - `docs/architecture.md`

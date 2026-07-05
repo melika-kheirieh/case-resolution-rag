@@ -23,6 +23,7 @@ http://127.0.0.1:8000/demo
    - Point to `citations`, `retrieval_run.matched_chunk_ids`, and `customer_response_allowed = true`.
    - Copy `investigation_run_id` and load `/investigation-runs/{investigation_run_id}`.
    - Show the persisted `audit_events`.
+   - Optionally load `/investigation-runs?limit=20` to show recent persisted runs.
    - Say: the backend allows the response because the refund is completed, policy evidence was retrieved through the vector store, citation metadata exists, and the provider output passed safety checks.
 
 2. Run `case_refund_delay_001`.
