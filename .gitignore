@@ -13,3 +13,4 @@ __MACOSX/
 .env.*
 !.env.example
 case_resolution_audit.db
+*.egg-info/
