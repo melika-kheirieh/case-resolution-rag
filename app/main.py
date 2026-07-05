@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi import HTTPException
+from fastapi import Query
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
@@ -166,6 +167,14 @@ def run_investigation(case_id: str):
 @app.post("/cases/{case_id}/investigate")
 def investigate_case(case_id: str):
     return investigation_service.run(case_id)
+
+
+@app.get("/investigation-runs")
+def list_investigation_runs(limit: int = Query(default=20, ge=1, le=100)):
+    return {
+        "limit": limit,
+        "runs": audit_repository.list_recent(limit=limit),
+    }
 
 
 @app.get("/investigation-runs/{run_id}")

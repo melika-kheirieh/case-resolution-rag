@@ -1,60 +1,137 @@
 # Demo Script
 
-This script is for a short project walkthrough. The goal is to show that this is a controlled backend workflow, not a chatbot demo.
+Use this for a 3-5 minute technical walkthrough. The goal is to show a
+controlled backend workflow, not a chatbot demo.
 
 ## Setup
 
-Run the API:
+Create the local environment and install dev dependencies:
 
 ```bash
-uvicorn app.main:app --reload
+python -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
 ```
 
-Open:
+Create the durable audit tables explicitly:
+
+```bash
+.venv/bin/python -m alembic upgrade head
+```
+
+Local direct runs use `case_resolution_audit.db` by default and also ensure the
+demo audit tables exist at startup. Alembic is the explicit setup path.
+
+## Run API
+
+Start FastAPI:
+
+```bash
+.venv/bin/python -m uvicorn app.main:app --reload
+```
+
+Open the browser demo:
 
 ```text
 http://127.0.0.1:8000/demo
 ```
 
-## Three-Minute Flow
+## Resolve A Case
 
-1. Start with `case_refund_delay_002`.
-   - Show `automation_decision = auto_resolve_candidate`.
-   - Point to `citations`, `retrieval_run.matched_chunk_ids`, and `customer_response_allowed = true`.
-   - Copy `investigation_run_id` and load `/investigation-runs/{investigation_run_id}`.
-   - Show the persisted `audit_events`.
-   - Say: the backend allows the response because the refund is completed, policy evidence was retrieved through the vector store, citation metadata exists, and the provider output passed safety checks.
+Run the completed-refund case:
 
-2. Run `case_refund_delay_001`.
-   - Show `sla_check.is_breached = true`.
-   - Show `automation_decision = manual_review_required`.
-   - Point to `automation_blockers`.
-   - Point to `risk_gate.risk_level = high`.
-   - Say: SLA breach is not auto-resolved because customer-facing promises need operator review.
+```bash
+curl -i -X POST \
+  -H "X-Request-ID: req_demo_case_resolution" \
+  -H "X-Correlation-ID: corr_case_resolution_demo" \
+  http://127.0.0.1:8000/cases/case_refund_delay_002/investigate
+```
 
-3. Run `case_refund_delay_missing_evidence`.
-   - Show `readiness.status = missing_evidence`.
-   - Show `missing_refund_request`.
-   - Say: the system abstains instead of inventing a refund status.
+Point out:
 
-4. Run `case_refund_delay_refund_failed`.
-   - Show `refund_status = failed`.
-   - Show `refund_failed_operator_review_required`.
-   - Say: even with a valid policy citation, failed money movement needs operator review.
+- `automation_decision = auto_resolve_candidate`
+- `customer_response_allowed = true`
+- `citations`
+- `retrieval_run.matched_chunk_ids`
+- `request_id` and `correlation_id` in response headers, packet fields, and JSON logs
+- `investigation_run_id`
 
-5. Run `case_refund_delay_policy_conflict`.
-   - Show `retrieval_run.status = policy_conflict`.
-   - Show two citations and `conflict_policy_ids`.
-   - Say: multiple active policies disagree, so the backend escalates instead of choosing one silently.
+This is the real route for resolving a case in the current app. There is no
+implemented `GET /resolve-case` endpoint.
 
-6. Run `/demo/failure-gallery`.
-   - Show SLA breach, missing evidence, expired policy, policy conflict, refund failed, within-SLA wait, policy version mismatch, and bad AI response in one response.
-   - Say: this is the failure gallery; it makes unsafe paths demoable instead of hidden in unit tests.
+## Inspect A Persisted Run
 
-7. Run `/eval/demo`.
-   - Show `action_accuracy`, `decision_accuracy`, `retrieval_hit_rate`, `manual_review_accuracy`, `unsafe_response_block_rate`, and `abstention_accuracy`.
-   - Say: the evaluation is small, but it makes the expected behavior explicit and regression-testable.
+Copy `investigation_run_id` from the response and load the durable record:
 
-## Closing Sentence
+```bash
+curl http://127.0.0.1:8000/investigation-runs/{investigation_run_id}
+```
 
-"Policy chunks are embedded and can be retrieved through pgvector, but the provider still only drafts text; the backend owns evidence, policy selection, citation checks, blockers, risk gate, readiness, the final automation decision, and the persisted audit trail."
+Point out:
+
+- persisted case id, decision, risk level, request id, and correlation id
+- ordered `audit_events`
+- `audit_reference`
+
+List recent investigation runs:
+
+```bash
+curl "http://127.0.0.1:8000/investigation-runs?limit=20"
+```
+
+Point out that the response is `{"limit": 20, "runs": [...]}`.
+
+## Show Failure Paths
+
+Run one or two failure cases:
+
+```bash
+curl -X POST http://127.0.0.1:8000/cases/case_refund_delay_001/investigate
+curl -X POST http://127.0.0.1:8000/cases/case_refund_delay_policy_conflict/investigate
+```
+
+For `case_refund_delay_001`, show:
+
+- `sla_check.is_breached = true`
+- `automation_decision = manual_review_required`
+- `automation_blockers`
+- `risk_gate.risk_level = high`
+
+For `case_refund_delay_policy_conflict`, show:
+
+- `retrieval_run.status = policy_conflict`
+- two citations
+- `conflict_policy_ids`
+
+Optionally show the full failure gallery:
+
+```bash
+curl http://127.0.0.1:8000/demo/failure-gallery
+```
+
+## Run Eval Gate
+
+Show the API report:
+
+```bash
+curl http://127.0.0.1:8000/eval/demo
+```
+
+Then run the same threshold gate used by local checks and CI:
+
+```bash
+.venv/bin/python scripts/check_eval_thresholds.py
+```
+
+Point out that all golden cases must pass and these metrics must stay at `1.0`:
+`action_accuracy`, `decision_accuracy`, `retrieval_hit_rate`,
+`citation_coverage`, `manual_review_accuracy`, `unsafe_response_block_rate`, and
+`abstention_accuracy`.
+
+## What This Proves
+
+The backend, not the provider, owns evidence loading, policy retrieval, citation
+rendering, SLA checks, blockers, risk gating, response gating, and the final
+automation decision. Policy chunks can be retrieved through pgvector in the
+Docker path, but provider output is still only a draft. The returned packet,
+structured logs, persisted investigation run, ordered audit events, and eval
+gate make the workflow inspectable and regression-testable.
