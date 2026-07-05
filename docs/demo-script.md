@@ -55,9 +55,6 @@ Point out:
 - `request_id` and `correlation_id` in response headers, packet fields, and JSON logs
 - `investigation_run_id`
 
-This is the real route for resolving a case in the current app. There is no
-implemented `GET /resolve-case` endpoint.
-
 ## Inspect A Persisted Run
 
 Copy `investigation_run_id` from the response and load the durable record:

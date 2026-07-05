@@ -162,10 +162,6 @@ Resolve a seeded case:
 curl -X POST http://127.0.0.1:8000/cases/case_refund_delay_002/investigate
 ```
 
-This is the actual route for resolving a case in this repository. There is no
-implemented `GET /resolve-case` endpoint; use `POST /cases/{case_id}/investigate`
-instead.
-
 Send request and correlation IDs when you want deterministic trace labels:
 
 ```bash
