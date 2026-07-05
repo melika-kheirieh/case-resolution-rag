@@ -5,7 +5,10 @@ Evidence-based case resolution backend for e-commerce refund delays.
 This is a small demo slice of an AI-first operations case resolution backend. It is not a
 production system.
 
-This project is not a chatbot, payment processor, PSP integration, or bank simulator. It is a backend workflow that loads an operational support case, builds a timeline, retrieves active policy evidence, checks refund SLA, proposes a structured action, drafts a customer-safe response, and records an investigation trace.
+The project is not a chatbot, payment processor, PSP integration, or bank simulator. It is
+a backend workflow that loads an operational support case, builds a timeline, retrieves
+active policy evidence, checks refund SLA, proposes a structured action, drafts a
+customer-safe response, and persists an investigation run with ordered audit events.
 
 ## Current Slice
 
@@ -16,7 +19,7 @@ Implemented demo slice:
 - Active refund policy retrieval with deterministic embeddings and semantic ranking
 - `DocumentChunk` embeddings for policy chunks
 - PostgreSQL + pgvector-backed policy chunk store for Docker Compose runs
-- Durable investigation run and audit event storage with SQLAlchemy
+- Durable storage for investigation runs and audit events with SQLAlchemy
 - In-memory vector store for fast tests and API-key-free local development
 - Retrieval run metadata with matched and rejected policy ids
 - Policy conflict detection
@@ -28,8 +31,8 @@ Implemented demo slice:
 - `automation_decision` and `automation_blockers`
 - Deterministic fake LLM provider with safe and bad-output modes
 - Customer response gate that requires citation, safe decision, and structured provider output
-- Audit trace with retrieval, risk, decision, and response-gating events
-- API endpoint for loading a persisted investigation run by id
+- Audit events for retrieval, risk, decision, and response gating
+- API endpoints for loading a persisted investigation run by id and listing recent investigation runs
 - Basic investigation logging for case id, retrieved chunk ids, decision, and blockers
 - Demo evaluation report over golden cases
 - Evaluation metrics for action, decision, retrieval hit, citation, manual review, unsafe response blocking, and abstention behavior
@@ -52,13 +55,17 @@ Additional evaluation scenario:
 
 - `bad_ai_response`: completed refund with a bad provider draft, blocked before customer response
 
-## Why This Is Not Just A Chatbot
+## Why This Is More Than Basic RAG
 
 The LLM-shaped provider does not own the decision. It only drafts a structured customer response. The backend owns policy retrieval, evidence checks, SLA evaluation, automation blockers, citation gating, and the final `ResolutionPacket`.
 
 That means a provider can produce a bad draft and the system can still block customer-facing output. This is the important contract: AI output is treated as an input to validate, not as the source of truth.
 
-Day-four behavior focuses on failure paths: missing evidence, expired policy, conflicting policy, failed refund, SLA breach, and unsafe provider output are visible and test-covered.
+Current behavior focuses on failure paths: missing evidence, expired policy, conflicting policy, failed refund, SLA breach, and unsafe provider output are visible and test-covered.
+
+The demo also includes production-minded operational boundaries: request and
+correlation IDs, structured JSON logs, a strict evaluation threshold gate,
+durable investigation runs, and ordered audit events.
 
 ## Enterprise RAG Boundary
 
@@ -94,56 +101,84 @@ It is still close to an enterprise RAG workflow because the core behavior is pre
 
 ## Run
 
-Install dependencies:
+Create and install into a local virtual environment:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
 ```
+
+Commands below use the local virtual environment explicitly.
 
 Run tests:
 
 ```bash
-python -m pytest -q
+.venv/bin/python -m pytest -q
 ```
 
 Run lint and compile checks:
 
 ```bash
-python -m ruff check .
-python -m compileall app tests
+.venv/bin/python -m ruff check .
+.venv/bin/python -m compileall app tests scripts migrations
 ```
 
 Run the evaluation quality gate used by CI:
 
 ```bash
-python scripts/check_eval_thresholds.py
+.venv/bin/python scripts/check_eval_thresholds.py
 ```
+
+The gate fails if any golden scenario fails or if action, decision, retrieval,
+citation, manual-review, unsafe-output, or abstention metrics drop below `1.0`.
 
 Run Alembic migrations for the durable audit tables:
 
 ```bash
-alembic upgrade head
+.venv/bin/python -m alembic upgrade head
 ```
+
+The migration creates `investigation_runs` and `audit_events`. The app also
+ensures those tables exist at startup for local demo convenience; use Alembic for
+explicit database setup.
 
 Run API:
 
 ```bash
-uvicorn app.main:app --reload
+.venv/bin/python -m uvicorn app.main:app --reload
 ```
 
-Then open:
+## API Shape
+
+Open the browser demo:
 
 ```text
 http://127.0.0.1:8000/demo
 ```
 
-Or call the main investigation endpoint:
+Resolve a seeded case:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/cases/case_refund_delay_002/investigate
 ```
 
-Or run the demo evaluation report:
+This is the actual route for resolving a case in this repository. There is no
+implemented `GET /resolve-case` endpoint; use `POST /cases/{case_id}/investigate`
+instead.
+
+Send request and correlation IDs when you want deterministic trace labels:
+
+```bash
+curl -X POST \
+  -H "X-Request-ID: req_demo_case_resolution" \
+  -H "X-Correlation-ID: corr_case_resolution_demo" \
+  http://127.0.0.1:8000/cases/case_refund_delay_002/investigate
+```
+
+The API returns those IDs in response headers and in the `ResolutionPacket`. The
+structured JSON logs include the same fields.
+
+Run the demo evaluation report:
 
 ```bash
 curl http://127.0.0.1:8000/eval/demo
@@ -158,17 +193,20 @@ Or inspect the failure gallery:
 curl http://127.0.0.1:8000/demo/failure-gallery
 ```
 
-After running an investigation, load the persisted audit run:
+After running an investigation, load the persisted investigation run:
 
 ```bash
 curl http://127.0.0.1:8000/investigation-runs/{investigation_run_id}
 ```
 
-Or list recent persisted audit runs:
+Or list recent persisted investigation runs:
 
 ```bash
 curl "http://127.0.0.1:8000/investigation-runs?limit=20"
 ```
+
+The list endpoint returns `{"limit": 20, "runs": [...]}`. Each run includes its
+ordered `audit_events`.
 
 Useful project notes:
 
@@ -189,9 +227,9 @@ docker compose up --build
 
 On startup, the API creates the `vector` extension, creates the `policy_chunks` table, seeds the demo policy chunks with deterministic embeddings, and uses pgvector cosine similarity for policy retrieval.
 
-Investigation audit storage uses `AUDIT_DATABASE_URL` when set. If it is not set,
-the app uses `DATABASE_URL`; for direct local runs it falls back to a local
-SQLite file named `case_resolution_audit.db`.
+Storage for investigation runs and audit events uses `AUDIT_DATABASE_URL` when
+set. If it is not set, the app uses `DATABASE_URL`; for direct local runs it
+falls back to a local SQLite file named `case_resolution_audit.db`.
 
 The important boundary is the same in both modes: citations are rendered from backend metadata, not invented by the provider.
 
@@ -217,6 +255,7 @@ The investigation flow is:
 The output packet includes:
 
 * `summary`
+* `investigation_run_id`
 * `request_id`
 * `correlation_id`
 * `timeline`
@@ -232,6 +271,7 @@ The output packet includes:
 * `customer_response_allowed`
 * `limitations`
 * `trace`
+* `audit_reference`
 
 ## Demo Walkthrough
 
@@ -262,10 +302,10 @@ not full operational storage.
 
 The CI workflow runs:
 
-* `python -m ruff check .`
-* `python -m compileall app tests scripts`
-* `python -m pytest -q`
-* `python scripts/check_eval_thresholds.py`
+* `.venv/bin/python -m ruff check .`
+* `.venv/bin/python -m compileall app tests scripts migrations`
+* `.venv/bin/python -m pytest -q`
+* `.venv/bin/python scripts/check_eval_thresholds.py`
 
 The evaluation threshold script fails if any golden scenario fails or if action,
 decision, retrieval, citation, manual-review, unsafe-output, or abstention

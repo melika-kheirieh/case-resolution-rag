@@ -30,6 +30,12 @@ The repository includes `scripts/check_eval_thresholds.py` so evaluation is not
 only a demo endpoint. CI fails if any golden scenario fails or if any metric
 drops below `1.0`.
 
+Run it locally with:
+
+```bash
+.venv/bin/python scripts/check_eval_thresholds.py
+```
+
 Current enforced metrics:
 
 - `action_accuracy`

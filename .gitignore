@@ -3,6 +3,10 @@ __pycache__/
 .ruff_cache/
 .venv/
 .deps/
+build/
+dist/
+htmlcov/
+.coverage
 *.pyc
 *.pyo
 *.pyd
@@ -12,5 +16,14 @@ __MACOSX/
 .env
 .env.*
 !.env.example
+
+# Local SQLite audit databases
 case_resolution_audit.db
+case_resolution_audit.db-*
+*audit*.db
+*audit*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
 *.egg-info/
