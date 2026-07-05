@@ -16,6 +16,7 @@ Implemented demo slice:
 - Active refund policy retrieval with deterministic embeddings and semantic ranking
 - `DocumentChunk` embeddings for policy chunks
 - PostgreSQL + pgvector-backed policy chunk store for Docker Compose runs
+- Durable investigation run and audit event storage with SQLAlchemy
 - In-memory vector store for fast tests and API-key-free local development
 - Retrieval run metadata with matched and rejected policy ids
 - Policy conflict detection
@@ -27,7 +28,8 @@ Implemented demo slice:
 - `automation_decision` and `automation_blockers`
 - Deterministic fake LLM provider with safe and bad-output modes
 - Customer response gate that requires citation, safe decision, and structured provider output
-- In-memory audit trace with retrieval and decision events
+- Audit trace with retrieval, risk, decision, and response-gating events
+- API endpoint for loading a persisted investigation run by id
 - Basic investigation logging for case id, retrieved chunk ids, decision, and blockers
 - Demo evaluation report over golden cases
 - Evaluation metrics for action, decision, retrieval hit, citation, manual review, unsafe response blocking, and abstention behavior
@@ -60,7 +62,7 @@ Day-four behavior focuses on failure paths: missing evidence, expired policy, co
 
 ## Enterprise RAG Boundary
 
-This is not a full enterprise RAG platform yet. It does not include access control, document ingestion, reranking, or production-grade persistence for investigation runs.
+This is not a full enterprise RAG platform yet. It does not include access control, document ingestion, reranking, or full production persistence for all operational case data.
 
 It is still close to an enterprise RAG workflow because the core behavior is present:
 
@@ -75,6 +77,8 @@ It is still close to an enterprise RAG workflow because the core behavior is pre
 - Unsafe or unstructured provider output blocks customer-facing response.
 - Risk gating is explicit in the packet, not hidden inside prose.
 - The packet carries trace data so the investigation path is inspectable.
+- Investigation runs and audit events are persisted separately from the synthetic
+  source data so decisions can be replayed and debugged after the response.
 - Requests carry `X-Request-ID` and `X-Correlation-ID` through response headers,
   structured logs, and investigation packets.
 - CI runs lint, compile checks, tests, and the demo evaluation threshold gate.
@@ -115,6 +119,12 @@ Run the evaluation quality gate used by CI:
 python scripts/check_eval_thresholds.py
 ```
 
+Run Alembic migrations for the durable audit tables:
+
+```bash
+alembic upgrade head
+```
+
 Run API:
 
 ```bash
@@ -148,6 +158,12 @@ Or inspect the failure gallery:
 curl http://127.0.0.1:8000/demo/failure-gallery
 ```
 
+After running an investigation, load the persisted audit run:
+
+```bash
+curl http://127.0.0.1:8000/investigation-runs/{investigation_run_id}
+```
+
 Useful project notes:
 
 - `docs/architecture.md`
@@ -166,6 +182,10 @@ docker compose up --build
 ```
 
 On startup, the API creates the `vector` extension, creates the `policy_chunks` table, seeds the demo policy chunks with deterministic embeddings, and uses pgvector cosine similarity for policy retrieval.
+
+Investigation audit storage uses `AUDIT_DATABASE_URL` when set. If it is not set,
+the app uses `DATABASE_URL`; for direct local runs it falls back to a local
+SQLite file named `case_resolution_audit.db`.
 
 The important boundary is the same in both modes: citations are rendered from backend metadata, not invented by the provider.
 
@@ -186,7 +206,7 @@ The investigation flow is:
 11. Build automation decision
 12. Gate customer-facing response using citation and provider-safety checks
 13. Return a structured resolution packet
-14. Store audit and retrieval trace for the investigation run
+14. Persist the investigation run and audit events for later inspection
 
 The output packet includes:
 
@@ -228,6 +248,11 @@ The API adds a request ID and correlation ID to every response. If the caller
 does not send them, the middleware generates a request ID and reuses it as the
 correlation ID. Investigation packets include both fields so a demo response can
 be connected to structured JSON logs.
+
+Investigation runs are stored in `investigation_runs`, and ordered audit events
+are stored in `audit_events`. The source case/refund/policy fixtures are still
+synthetic demo data; this persistence is intentionally scoped to auditability,
+not full operational storage.
 
 The CI workflow runs:
 

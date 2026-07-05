@@ -179,6 +179,29 @@ class InvestigationRun(BaseModel):
     audit_events: list[str] = Field(default_factory=list)
 
 
+class PersistedAuditEvent(BaseModel):
+    sequence_number: int
+    name: str
+    created_at: datetime
+
+
+class PersistedInvestigationRun(BaseModel):
+    id: str
+    case_id: str
+    provider_name: str
+    created_at: datetime
+    request_id: str | None = None
+    correlation_id: str | None = None
+    recommended_action: RecommendedAction
+    automation_decision: AutomationDecision
+    risk_level: RiskLevel
+    risk_score: int
+    customer_response_allowed: bool
+    requires_human_review: bool
+    audit_reference: str
+    audit_events: list[PersistedAuditEvent] = Field(default_factory=list)
+
+
 class RetrievalRun(BaseModel):
     id: str
     case_id: str

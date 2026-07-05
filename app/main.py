@@ -2,12 +2,14 @@ import logging
 from uuid import uuid4
 
 from fastapi import FastAPI
+from fastapi import HTTPException
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
 from app.services.demo_seed import build_demo_store
 from app.services.evaluation import run_demo_evaluation
 from app.services.investigation import InvestigationService
+from app.services.audit_repository_factory import build_investigation_audit_repository
 from app.services.logging_config import configure_logging, correlation_id_var, request_id_var
 from app.services.policy_retrieval_factory import build_policy_retrieval_service
 from app.services.provider import FakeProvider
@@ -17,11 +19,17 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Operations Case Resolution Backend", version="0.3.0")
 store = build_demo_store()
 policy_retrieval = build_policy_retrieval_service(store.list_policies())
-investigation_service = InvestigationService(store=store, policy_retrieval=policy_retrieval)
+audit_repository = build_investigation_audit_repository()
+investigation_service = InvestigationService(
+    store=store,
+    policy_retrieval=policy_retrieval,
+    audit_repository=audit_repository,
+)
 bad_provider_service = InvestigationService(
     store=store,
     policy_retrieval=policy_retrieval,
     provider=FakeProvider(mode="bad_output"),
+    audit_repository=audit_repository,
 )
 
 FAILURE_GALLERY_CASE_IDS = [
@@ -160,6 +168,14 @@ def investigate_case(case_id: str):
     return investigation_service.run(case_id)
 
 
+@app.get("/investigation-runs/{run_id}")
+def get_investigation_run(run_id: str):
+    run = audit_repository.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Investigation run not found.")
+    return run
+
+
 @app.get("/eval/demo")
 def evaluate_demo_cases():
     return run_demo_evaluation(investigation_service)
@@ -182,5 +198,6 @@ def _failure_gallery_item(
         "risk_gate": packet.risk_gate,
         "customer_response_allowed": packet.customer_response_allowed,
         "requires_human_review": packet.requires_human_review,
+        "investigation_run_id": packet.investigation_run_id,
         "audit_reference": packet.audit_reference,
     }

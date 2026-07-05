@@ -24,6 +24,7 @@ from app.services.provider import FakeProvider
 from app.services.store import DemoStore
 from app.services.timeline import build_timeline
 from app.services.logging_config import current_correlation_id, current_request_id
+from app.services.audit_repository import InvestigationAuditRepository
 
 
 logger = logging.getLogger(__name__)
@@ -35,10 +36,12 @@ class InvestigationService:
         store: DemoStore,
         policy_retrieval: PolicyRetrievalService | None = None,
         provider: FakeProvider | None = None,
+        audit_repository: InvestigationAuditRepository | None = None,
     ) -> None:
         self.store = store
         self.policy_retrieval = policy_retrieval or PolicyRetrievalService()
         self.provider = provider or FakeProvider()
+        self.audit_repository = audit_repository
 
     def run(self, case_id: str) -> ResolutionPacket:
         request_id = current_request_id()
@@ -220,6 +223,8 @@ class InvestigationService:
             trace=trace,
             audit_reference=" > ".join(trace),
         )
+        if self.audit_repository is not None:
+            self.audit_repository.save(run=run, packet=packet)
         return packet
 
     def _check_evidence(

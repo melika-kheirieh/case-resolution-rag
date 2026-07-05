@@ -21,6 +21,8 @@ http://127.0.0.1:8000/demo
 1. Start with `case_refund_delay_002`.
    - Show `automation_decision = auto_resolve_candidate`.
    - Point to `citations`, `retrieval_run.matched_chunk_ids`, and `customer_response_allowed = true`.
+   - Copy `investigation_run_id` and load `/investigation-runs/{investigation_run_id}`.
+   - Show the persisted `audit_events`.
    - Say: the backend allows the response because the refund is completed, policy evidence was retrieved through the vector store, citation metadata exists, and the provider output passed safety checks.
 
 2. Run `case_refund_delay_001`.
@@ -55,4 +57,4 @@ http://127.0.0.1:8000/demo
 
 ## Closing Sentence
 
-"Policy chunks are embedded and can be retrieved through pgvector, but the provider still only drafts text; the backend owns evidence, policy selection, citation checks, blockers, risk gate, readiness, and the final automation decision."
+"Policy chunks are embedded and can be retrieved through pgvector, but the provider still only drafts text; the backend owns evidence, policy selection, citation checks, blockers, risk gate, readiness, the final automation decision, and the persisted audit trail."
