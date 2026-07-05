@@ -11,16 +11,16 @@ def test_request_context_is_returned_and_recorded_in_packet(test_client):
     response = test_client.post(
         "/cases/case_refund_delay_002/investigate",
         headers={
-            "X-Request-ID": "req_interview_demo",
+            "X-Request-ID": "req_demo_context",
             "X-Correlation-ID": "corr_case_resolution_demo",
         },
     )
 
     assert response.status_code == 200
-    assert response.headers["X-Request-ID"] == "req_interview_demo"
+    assert response.headers["X-Request-ID"] == "req_demo_context"
     assert response.headers["X-Correlation-ID"] == "corr_case_resolution_demo"
     data = response.json()
-    assert data["request_id"] == "req_interview_demo"
+    assert data["request_id"] == "req_demo_context"
     assert data["correlation_id"] == "corr_case_resolution_demo"
 
 

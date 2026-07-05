@@ -40,7 +40,7 @@ def test_audit_repository_returns_none_for_missing_run():
     assert repository.get("inv_missing") is None
 
 
-def test_audit_repository_list_recent_returns_latest_limited_run():
+def test_audit_repository_list_recent_orders_by_created_at_and_applies_limit():
     engine = create_engine("sqlite:///:memory:")
     repository = InvestigationAuditRepository.from_engine(engine)
     repository.ensure_schema()
@@ -51,13 +51,18 @@ def test_audit_repository_list_recent_returns_latest_limited_run():
     )
     _persist_run(
         repository,
-        run_id="inv_newer",
+        run_id="inv_middle",
         created_at=datetime(2026, 1, 2, tzinfo=UTC),
     )
+    _persist_run(
+        repository,
+        run_id="inv_newest",
+        created_at=datetime(2026, 1, 3, tzinfo=UTC),
+    )
 
-    recent_runs = repository.list_recent(limit=1)
+    recent_runs = repository.list_recent(limit=2)
 
-    assert [run.id for run in recent_runs] == ["inv_newer"]
+    assert [run.id for run in recent_runs] == ["inv_newest", "inv_middle"]
 
 
 def _persist_run(

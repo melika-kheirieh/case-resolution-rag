@@ -45,7 +45,7 @@ Next:
 
 - Add durable PostgreSQL models for support cases, refunds, and timeline events
 - Add repository-backed case loading while preserving synthetic demo fixtures
-- Add a small audit run listing endpoint with pagination
+- Add pagination beyond the current limit-based investigation run listing
 
 ## Persistence And Audit
 
