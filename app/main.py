@@ -4,10 +4,12 @@ from fastapi.responses import HTMLResponse
 from app.services.demo_seed import build_demo_store
 from app.services.evaluation import run_demo_evaluation
 from app.services.investigation import InvestigationService
+from app.services.policy_retrieval_factory import build_policy_retrieval_service
 
-app = FastAPI(title="Operations Case Resolution Backend", version="0.2.0")
+app = FastAPI(title="Operations Case Resolution Backend", version="0.3.0")
 store = build_demo_store()
-investigation_service = InvestigationService(store=store)
+policy_retrieval = build_policy_retrieval_service(store.list_policies())
+investigation_service = InvestigationService(store=store, policy_retrieval=policy_retrieval)
 
 
 @app.get("/health")

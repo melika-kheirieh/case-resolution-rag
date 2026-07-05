@@ -1,7 +1,26 @@
 services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: case_resolution
+      POSTGRES_USER: case_resolution
+      POSTGRES_PASSWORD: case_resolution
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U case_resolution -d case_resolution"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
   api:
     build: .
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
       APP_ENV: demo
+      POLICY_STORE: postgres
+      DATABASE_URL: postgresql://case_resolution:case_resolution@db:5432/case_resolution

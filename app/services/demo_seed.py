@@ -10,6 +10,7 @@ from app.domain.models import (
     TimelineEvent,
     TimelineEventType,
 )
+from app.services.embeddings import DeterministicEmbeddingModel
 from app.services.store import DemoStore
 
 
@@ -17,10 +18,30 @@ def dt(value: str) -> datetime:
     return datetime.fromisoformat(value).replace(tzinfo=UTC)
 
 
+embedding_model = DeterministicEmbeddingModel()
+
+
+def policy_chunk(
+    *,
+    id: str,
+    document_id: str,
+    text: str,
+    metadata: dict[str, object],
+) -> DocumentChunk:
+    return DocumentChunk(
+        id=id,
+        document_id=document_id,
+        text=text,
+        metadata=metadata,
+        embedding=embedding_model.embed(text),
+    )
+
+
 def build_demo_store() -> DemoStore:
     breached_case = SupportCase(
         id="case_refund_delay_001",
         case_type="refund_delay",
+        policy_version="2026.06",
         status=CaseStatus.OPEN,
         order_id="order_1001",
         customer_id_masked="cust_***_4821",
@@ -31,6 +52,7 @@ def build_demo_store() -> DemoStore:
     completed_case = SupportCase(
         id="case_refund_delay_002",
         case_type="refund_delay",
+        policy_version="2026.06",
         status=CaseStatus.OPEN,
         order_id="order_1002",
         customer_id_masked="cust_***_9910",
@@ -41,6 +63,7 @@ def build_demo_store() -> DemoStore:
     missing_evidence_case = SupportCase(
         id="case_refund_delay_missing_evidence",
         case_type="refund_delay",
+        policy_version="2026.06",
         status=CaseStatus.OPEN,
         order_id="order_1003",
         customer_id_masked="cust_***_2271",
@@ -51,6 +74,7 @@ def build_demo_store() -> DemoStore:
     expired_policy_case = SupportCase(
         id="case_refund_delay_expired_policy",
         case_type="refund_delay_legacy",
+        policy_version="2025.12",
         status=CaseStatus.OPEN,
         order_id="order_1004",
         customer_id_masked="cust_***_7312",
@@ -232,7 +256,7 @@ def build_demo_store() -> DemoStore:
         effective_from=dt("2026-06-01T00:00:00"),
         effective_to=None,
         chunks=[
-            DocumentChunk(
+            policy_chunk(
                 id="chunk_refund_sla",
                 document_id="policy_refund_2026_summer",
                 text=(
@@ -259,7 +283,7 @@ def build_demo_store() -> DemoStore:
         effective_from=dt("2025-12-01T00:00:00"),
         effective_to=dt("2026-05-31T23:59:59"),
         chunks=[
-            DocumentChunk(
+            policy_chunk(
                 id="chunk_expired_refund_sla",
                 document_id="policy_refund_2025",
                 text="Expired policy: refunds should be reviewed within 5 days.",
@@ -275,7 +299,7 @@ def build_demo_store() -> DemoStore:
         effective_from=dt("2026-06-01T00:00:00"),
         effective_to=None,
         chunks=[
-            DocumentChunk(
+            policy_chunk(
                 id="chunk_conflict_refund_sla_3_days",
                 document_id="policy_refund_conflict_short_sla",
                 text=(
@@ -294,7 +318,7 @@ def build_demo_store() -> DemoStore:
         effective_from=dt("2026-06-01T00:00:00"),
         effective_to=None,
         chunks=[
-            DocumentChunk(
+            policy_chunk(
                 id="chunk_conflict_refund_sla_7_days",
                 document_id="policy_refund_conflict_long_sla",
                 text=(

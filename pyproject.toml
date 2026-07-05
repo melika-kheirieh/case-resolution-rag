@@ -1,12 +1,13 @@
 [project]
 name = "case-resolution-rag"
-version = "0.2.0"
+version = "0.3.0"
 description = "Evidence-based operations case resolution backend for e-commerce refund delays."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "pydantic>=2.8.0",
+    "psycopg[binary]>=3.2.0",
 ]
 
 [project.optional-dependencies]

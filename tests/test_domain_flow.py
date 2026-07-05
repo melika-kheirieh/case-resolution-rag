@@ -1,4 +1,15 @@
-from app.domain.models import AutomationDecision, CaseReadinessStatus, RecommendedAction
+from datetime import UTC, datetime
+
+from app.domain.models import (
+    AutomationDecision,
+    CaseReadinessStatus,
+    CaseStatus,
+    DocumentChunk,
+    PolicyDocument,
+    RecommendedAction,
+    SupportCase,
+)
+from app.services.embeddings import DeterministicEmbeddingModel
 from app.services.evaluation import run_demo_evaluation
 from app.services.investigation import InvestigationService
 from app.services.policy_retrieval import PolicyRetrievalService
@@ -39,9 +50,126 @@ def test_active_refund_policy_retrieval_returns_expected_chunk_and_citation(demo
     assert result.citation is not None
     assert result.citation.chunk_id == "chunk_refund_sla"
     assert result.citation.document_id == "policy_refund_2026_summer"
+    assert result.citation.title == "Refund and Return Policy v2026.06"
+    assert result.citation.excerpt == result.chunk.text
     assert result.citations == [result.citation]
     assert result.retrieval_run.status == "policy_retrieved"
     assert result.retrieval_run.matched_chunk_ids == ["chunk_refund_sla"]
+
+
+def test_seeded_policy_chunks_have_deterministic_embeddings(demo_store):
+    chunks = [chunk for policy in demo_store.list_policies() for chunk in policy.chunks]
+
+    assert chunks
+    assert all(chunk.embedding for chunk in chunks)
+    assert all(len(chunk.embedding) == DeterministicEmbeddingModel.dimensions for chunk in chunks)
+
+
+def test_semantic_policy_retrieval_ranks_closest_chunk_first():
+    embedding_model = DeterministicEmbeddingModel()
+    support_case = SupportCase(
+        id="case_semantic_rank",
+        case_type="refund_delay",
+        policy_version="2026.07",
+        status=CaseStatus.OPEN,
+        order_id="order_semantic",
+        customer_id_masked="cust_***_semantic",
+        customer_message="The refund is still pending after my return was accepted.",
+        created_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
+    )
+    query = (
+        f"{support_case.case_type} refund policy SLA evidence: "
+        f"{support_case.customer_message}"
+    )
+    expected_chunk = DocumentChunk(
+        id="chunk_semantic_refund",
+        document_id="policy_semantic_refund",
+        text="Refund delay SLA policy for pending refunds after an accepted return.",
+        metadata={"case_type": "refund_delay", "refund_sla_days": 3},
+        embedding=embedding_model.embed(query),
+    )
+    weak_chunk = DocumentChunk(
+        id="chunk_semantic_weak",
+        document_id="policy_semantic_weak",
+        text="Generic support policy for unrelated account notifications.",
+        metadata={"case_type": "refund_delay", "refund_sla_days": 3},
+        embedding=[0.0] * embedding_model.dimensions,
+    )
+    policies = [
+        PolicyDocument(
+            id="policy_semantic_weak",
+            title="Generic Support Policy",
+            version="2026.07",
+            effective_from=datetime(2026, 1, 1, tzinfo=UTC),
+            chunks=[weak_chunk],
+        ),
+        PolicyDocument(
+            id="policy_semantic_refund",
+            title="Refund SLA Policy",
+            version="2026.07",
+            effective_from=datetime(2026, 1, 1, tzinfo=UTC),
+            chunks=[expected_chunk],
+        ),
+    ]
+
+    result = PolicyRetrievalService().retrieve_active_refund_policy(support_case, policies)
+
+    assert result.chunk is not None
+    assert result.chunk.id == "chunk_semantic_refund"
+    assert result.citation is not None
+    assert result.citation.chunk_id == "chunk_semantic_refund"
+    assert result.retrieval_run.matched_chunk_ids[0] == "chunk_semantic_refund"
+
+
+def test_policy_version_filter_rejects_other_active_versions():
+    embedding_model = DeterministicEmbeddingModel()
+    support_case = SupportCase(
+        id="case_version_filter",
+        case_type="refund_delay",
+        policy_version="2026.07",
+        status=CaseStatus.OPEN,
+        order_id="order_version_filter",
+        customer_id_masked="cust_***_version",
+        customer_message="My refund is delayed.",
+        created_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
+    )
+    current_chunk = DocumentChunk(
+        id="chunk_current_version",
+        document_id="policy_current_version",
+        text="Current refund delay SLA is 3 days.",
+        metadata={"case_type": "refund_delay", "refund_sla_days": 3},
+        embedding=embedding_model.embed("Current refund delay SLA is 3 days."),
+    )
+    older_chunk = DocumentChunk(
+        id="chunk_other_active_version",
+        document_id="policy_other_active_version",
+        text="Other active refund policy version says 9 days.",
+        metadata={"case_type": "refund_delay", "refund_sla_days": 9},
+        embedding=embedding_model.embed("Other active refund policy version says 9 days."),
+    )
+    policies = [
+        PolicyDocument(
+            id="policy_other_active_version",
+            title="Other Active Refund Policy",
+            version="2026.06",
+            effective_from=datetime(2026, 1, 1, tzinfo=UTC),
+            chunks=[older_chunk],
+        ),
+        PolicyDocument(
+            id="policy_current_version",
+            title="Current Refund Policy",
+            version="2026.07",
+            effective_from=datetime(2026, 1, 1, tzinfo=UTC),
+            chunks=[current_chunk],
+        ),
+    ]
+
+    result = PolicyRetrievalService().retrieve_active_refund_policy(support_case, policies)
+
+    assert result.chunk is not None
+    assert result.chunk.id == "chunk_current_version"
+    assert result.retrieval_run.matched_chunk_ids == ["chunk_current_version"]
+    assert "policy_other_active_version" in result.retrieval_run.rejected_policy_ids
 
 
 def test_expired_policy_is_rejected(demo_store):

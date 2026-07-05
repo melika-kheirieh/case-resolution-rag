@@ -13,7 +13,10 @@ Implemented demo slice:
 
 - Multiple synthetic `refund_delay` demo cases
 - Synthetic order, payment, return, and refund events
-- Active refund policy retrieval with chunk citation
+- Active refund policy retrieval with deterministic embeddings and semantic ranking
+- `DocumentChunk` embeddings for policy chunks
+- PostgreSQL + pgvector-backed policy chunk store for Docker Compose runs
+- In-memory vector store for fast tests and API-key-free local development
 - Retrieval run metadata with matched and rejected policy ids
 - Policy conflict detection
 - SLA breach detection
@@ -44,11 +47,13 @@ That means a provider can produce a bad draft and the system can still block cus
 
 ## Enterprise RAG Boundary
 
-This is not a full enterprise RAG platform yet. It does not include vector search, access control, document ingestion, reranking, or production persistence.
+This is not a full enterprise RAG platform yet. It does not include access control, document ingestion, reranking, or production-grade persistence for investigation runs.
 
 It is still close to an enterprise RAG workflow because the core behavior is present:
 
-- Retrieval is scoped by case type and active policy dates.
+- Policy chunks have deterministic embeddings.
+- Docker Compose can run policy chunk retrieval through PostgreSQL + pgvector.
+- Retrieval is scoped by case type, policy version, and active policy dates.
 - Decisions require citations from retrieved policy chunks.
 - Expired policy is rejected before decision-making.
 - Conflicting active policies are escalated instead of silently choosing one.
@@ -113,13 +118,27 @@ curl http://127.0.0.1:8000/eval/demo
 `/eval/demo` is a small demo evaluation report over the seeded golden cases. It is not a
 production evaluation framework.
 
+## PostgreSQL + pgvector Demo
+
+The default direct Python run uses the in-memory vector store so tests and local iteration stay fast.
+
+Docker Compose runs the API with PostgreSQL + pgvector:
+
+```bash
+docker compose up --build
+```
+
+On startup, the API creates the `vector` extension, creates the `policy_chunks` table, seeds the demo policy chunks with deterministic embeddings, and uses pgvector cosine similarity for policy retrieval.
+
+The important boundary is the same in both modes: citations are rendered from backend metadata, not invented by the provider.
+
 ## Demo Journey
 
 The investigation flow is:
 
 1. Load case
 2. Build timeline
-3. Retrieve active refund policy
+3. Retrieve active refund policy by embedding similarity with case-type, policy-version, and effective-date filters
 4. Check evidence completeness
 5. Check case readiness and policy conflicts
 6. Check refund SLA

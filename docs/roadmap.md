@@ -11,6 +11,11 @@ Implemented:
 - Synthetic happy-path and failure-path `refund_delay` cases
 - Timeline generation
 - Active policy retrieval
+- Deterministic policy chunk embeddings
+- Semantic policy retrieval through a vector-store interface
+- Policy filtering by case type, policy version, and effective date
+- PostgreSQL + pgvector adapter for policy chunks
+- Docker Compose Postgres/pgvector run path
 - Retrieval run metadata
 - Expired policy rejection
 - Policy conflict detection
@@ -32,7 +37,7 @@ Next:
 
 - Add more failure gallery cases
 - Add request and correlation ID logging
-- Replace in-memory store with PostgreSQL models
+- Add durable PostgreSQL models for cases, refunds, investigation runs, and audit events
 - Add Alembic migrations
 - Add more evaluation scenarios and threshold checks
 - Add structured JSON logs

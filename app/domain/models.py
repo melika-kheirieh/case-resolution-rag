@@ -59,6 +59,7 @@ class CaseReadinessStatus(StrEnum):
 class SupportCase(BaseModel):
     id: str
     case_type: str
+    policy_version: str | None = None
     status: CaseStatus
     order_id: str
     customer_id_masked: str
@@ -98,6 +99,7 @@ class DocumentChunk(BaseModel):
     document_id: str
     text: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+    embedding: list[float] = Field(default_factory=list)
 
 
 class PolicyDocument(BaseModel):
