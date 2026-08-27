@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
 import json
+from datetime import datetime
 
 from app.domain.models import DocumentChunk, PolicyDocument
 from app.services.embeddings import DeterministicEmbeddingModel

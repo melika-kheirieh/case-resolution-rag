@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import re
 from hashlib import blake2b
 from math import sqrt
-import re
-
 
 TOKEN_RE = re.compile(r"[a-z0-9_]+")
 

@@ -4,7 +4,6 @@ import os
 
 from app.services.audit_repository import InvestigationAuditRepository
 
-
 DEFAULT_AUDIT_DATABASE_URL = "sqlite:///./case_resolution_audit.db"
 
 
