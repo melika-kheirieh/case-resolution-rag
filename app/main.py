@@ -15,7 +15,6 @@ from app.services.policy_retrieval_factory import (
 )
 from app.services.provider import FakeProvider
 
-
 configure_logging()
 
 app = FastAPI(

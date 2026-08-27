@@ -7,7 +7,6 @@ from starlette.responses import Response
 
 from app.services.logging_config import correlation_id_var, request_id_var
 
-
 CallNext = Callable[[Request], Awaitable[Response]]
 
 logger = logging.getLogger(__name__)

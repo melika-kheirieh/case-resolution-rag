@@ -9,7 +9,6 @@ from sqlalchemy import engine_from_config, pool
 from app.services.audit_repository import Base
 from app.services.audit_repository_factory import _to_sqlalchemy_url
 
-
 config = context.config
 
 if config.config_file_name is not None:

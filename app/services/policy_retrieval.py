@@ -1,7 +1,13 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.domain.models import Citation, PolicyDocument, PolicyRetrievalResult, RetrievalRun, SupportCase
+from app.domain.models import (
+    Citation,
+    PolicyDocument,
+    PolicyRetrievalResult,
+    RetrievalRun,
+    SupportCase,
+)
 from app.services.policy_vector_store import InMemoryPolicyVectorStore, PolicyVectorStore
 
 

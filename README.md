@@ -1,6 +1,11 @@
 # Case Resolution RAG
 
-Evidence-based case resolution backend for e-commerce refund delays.
+[![CI](https://github.com/melika-kheirieh/case-resolution-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/melika-kheirieh/case-resolution-rag/actions/workflows/ci.yml)
+
+Evidence-first case resolution backend for e-commerce refund delays.
+
+> The provider drafts text. The backend owns evidence, policy, citations, blockers,
+> risk gating, and the final automation decision.
 
 This is a small demo slice of an AI-first operations case resolution backend. It is not a
 production system.
@@ -9,6 +14,27 @@ The project is not a chatbot, payment processor, PSP integration, or bank simula
 a backend workflow that loads an operational support case, builds a timeline, retrieves
 active policy evidence, checks refund SLA, proposes a structured action, drafts a
 customer-safe response, and persists an investigation run with ordered audit events.
+
+## At a Glance
+
+- **Safety before fluency:** unsupported, conflicting, expired, or unsafe outputs are blocked.
+- **Backend-owned decisions:** the provider cannot invent citations or approve automation.
+- **Regression-tested behavior:** 9 golden scenarios cover success, abstention, and failure paths.
+- **Inspectable execution:** request IDs, correlation IDs, retrieval metadata, and ordered audit events.
+- **Production-minded storage:** PostgreSQL + pgvector retrieval and durable SQLAlchemy audit records.
+- **Executable quality gates:** lint, compile checks, tests, and evaluation thresholds run in CI.
+
+## Core Flow
+
+```mermaid
+flowchart TD
+    A[Case events] --> B[Timeline and evidence]
+    B --> C[Active policy retrieval]
+    C --> D[Deterministic checks]
+    D --> E[Provider draft]
+    E --> F[Safety and risk gates]
+    F --> G[Resolution packet and audit]
+```
 
 ## Current Slice
 

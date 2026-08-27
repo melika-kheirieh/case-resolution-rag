@@ -1,5 +1,5 @@
-from datetime import UTC, datetime
 import sys
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from app.services.pgvector_store import PostgresPolicyVectorStore
